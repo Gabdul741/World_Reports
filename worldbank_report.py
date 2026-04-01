@@ -20,8 +20,8 @@ font_bold_path = os.path.join(base_dir, "fonts", "DejaVuSans-Bold.ttf")
 pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 pdfmetrics.registerFont(TTFont("DejaVu-Bold", font_bold_path))
 pdfmetrics.registerFont(TTFont("DejaVu", font_path))
-pdfmetrics.registerFont(TTFont("DejaVu-Bold",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
+#pdfmetrics.registerFont(TTFont("DejaVu-Bold",
+#    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
 
 st.title("🌍 Отчёты по мировым данным")
 
