@@ -12,7 +12,13 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import cm
 import io
 
-font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+#font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+import os
+base_dir = os.path.dirname(os.path.abspath(__file__))
+font_path = os.path.join(base_dir, "fonts", "DejaVuSans.ttf")
+font_bold_path = os.path.join(base_dir, "fonts", "DejaVuSans-Bold.ttf")
+pdfmetrics.registerFont(TTFont("DejaVu", font_path))
+pdfmetrics.registerFont(TTFont("DejaVu-Bold", font_bold_path))
 pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 pdfmetrics.registerFont(TTFont("DejaVu-Bold",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
