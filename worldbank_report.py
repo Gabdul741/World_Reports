@@ -30,7 +30,7 @@ scale = st.selectbox("Масштаб значений:", [ "Исходные", "
 
 if indicator == "ВВП":
 #    df = pd.read_csv("/home/pikis/gdp.csv")
-    df = pd.read_csv(os.path.join(base_dir, "population.csv"))
+    df = pd.read_csv(os.path.join(base_dir, "gdp.csv"))
     ylabel = "ВВП"
     title = "ВВП по странам"
     units = "долл. США"
