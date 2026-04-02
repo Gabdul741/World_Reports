@@ -191,6 +191,7 @@ if len(filtered) > 0:
             mime="application/pdf")
 st.markdown("---")
 st.subheader("📚 Источники данных:")
+)
 sources = {
     "ВВП": "World Bank | github.com/datasets/gdp",
     "Население": "World Bank | github.com/datasets/population",
@@ -200,4 +201,4 @@ sources = {
 }
 for key, value in sources.items():
     st.markdown(f"- **{key}:** {value}")
-        )
+#        )
