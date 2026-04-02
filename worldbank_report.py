@@ -203,3 +203,14 @@ if len(filtered) > 0:
 #for key, value in sources.items():
 #    st.markdown(f"- **{key}:** {value}"
 #        )
+st.markdown("---")
+st.subheader("📚 Источники данных:")
+sources = {
+    "ВВП": "World Bank | github.com/datasets/gdp",
+    "Население": "World Bank | github.com/datasets/population",
+    "Инфляция": "World Bank | github.com/datasets/inflation",
+    "Безработица": "World Bank/ILO | github.com/ShinjiniShome/world_unemployment_dataviz",
+    "Продолжительность жизни": "WHO | github.com/Sid-149/Life-Expectancy-Predictor",
+}
+for key, value in sources.items():
+    st.markdown(f"- **{key}:** {value}")
