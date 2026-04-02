@@ -188,7 +188,7 @@ if len(filtered) > 0:
             label="📥 Скачать PDF",
             data=buffer,
             file_name=f"{indicator}_report.pdf",
-            mime="application/pdf"
+            mime="application/pdf")
 st.markdown("---")
 st.subheader("📚 Источники данных:")
 sources = {
