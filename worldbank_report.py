@@ -59,9 +59,16 @@ else:
     units = "лет"
 
 countries = df["Country Name"].unique().tolist()
-selected = st.multiselect("Выберите страны:", countries,
-    default=["Russian Federation", "United States", "China", "Germany"])
+#selected = st.multiselect("Выберите страны:", countries,
+#    default=["Russian Federation", "United States", "China", "Germany"])
+if indicator == "Продолжительность жизни":
+    default_countries = ["Russia", "United States", "China", "Germany"]
+else:
+    default_countries = ["Russian Federation", "United States", "China", "Germany"]
 
+default_countries = [c for c in default_countries if c in countries]
+selected = st.multiselect("Выберите страны:", countries,
+    default=default_countries)
 year_from = st.slider("С года:", 1960, 2023, 2000)
 year_to = st.slider("По год:", 1960, 2023, 2023)
 
