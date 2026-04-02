@@ -67,8 +67,18 @@ else:
     ylabel = "Продолжительность жизни"
     title = "Продолжительность жизни по странам"
     units = "лет"
+#countries = df["Country Name"].unique().tolist()
+#selected = st.multiselect("Выберите страны:", countries,
 countries = df["Country Name"].unique().tolist()
+
+if indicator == "Продолжительность жизни":
+    default_countries = ["Russia", "United States", "China", "Germany"]
+else:
+    default_countries = ["Russian Federation", "United States", "China", "Germany"]
+
+default_countries = [c for c in default_countries if c in countries]
 selected = st.multiselect("Выберите страны:", countries,
+    default=default_countries)
     default=["Russian Federation", "United States", "China", "Germany"])
 
 year_from = st.slider("С года:", 1960, 2023, 2000)
