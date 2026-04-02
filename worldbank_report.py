@@ -25,31 +25,39 @@ pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 
 st.title("🌍 Отчёты по мировым данным")
 
-indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица"])
+#indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица"])
+indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица", "Продолжительность жизни"])
 scale = st.selectbox("Масштаб значений:", [ "Исходные", "Тысячи", "Миллионы", "Миллиарды"])
 
 if indicator == "ВВП":
-    df = pd.read_csv("/home/pikis/gdp.csv")
+    df = pd.read_csv(os.path.join(base_dir, "gdp.csv"))
     ylabel = "ВВП"
     title = "ВВП по странам"
     units = "долл. США"
 elif indicator == "Население":
-    df = pd.read_csv("/home/pikis/population.csv")
+    df = pd.read_csv(os.path.join(base_dir, "population.csv"))
     ylabel = "Население"
     title = "Население по странам"
     units = "чел."
 elif indicator == "Инфляция":
-    df = pd.read_csv("/home/pikis/inflation.csv")
+    df = pd.read_csv(os.path.join(base_dir, "inflation.csv"))
     df = df.rename(columns={"Country": "Country Name", "Inflation": "Value"})
     ylabel = "Инфляция"
     title = "Инфляция по странам"
     units = "%"
-else:
-    df = pd.read_csv("/home/pikis/unemployment.csv")
+elif indicator == "Безработица":
+    df = pd.read_csv(os.path.join(base_dir, "unemployment.csv"))
     df = df.rename(columns={"Unemployment Rate": "Value"})
     ylabel = "Безработица"
     title = "Безработица по странам"
     units = "%"
+else:
+    df = pd.read_csv(os.path.join(base_dir, "life_expectancy.csv"))
+    df = df.rename(columns={"Country": "Country Name", "Life expectancy": "Value"})
+    ylabel = "Продолжительность жизни"
+    title = "Продолжительность жизни по странам"
+    units = "лет"
+
 countries = df["Country Name"].unique().tolist()
 selected = st.multiselect("Выберите страны:", countries,
     default=["Russian Federation", "United States", "China", "Germany"])
