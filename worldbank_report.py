@@ -200,5 +200,5 @@ sources = {
     "Продолжительность жизни": "WHO | github.com/Sid-149/Life-Expectancy-Predictor",
 }
 for key, value in sources.items():
-    st.markdown(f"- **{key}:** {value}")
+    st.markdown(f"- **{key}:** {value}"
 #        )
