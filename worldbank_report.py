@@ -263,3 +263,7 @@ sources = {
 }
 for indicator_name, (filename, description, source) in sources.items():
     st.markdown(f"- **{indicator_name}:** {description} | Файл: `{filename}` | Источник: {source}")
+st.markdown("---")
+if st.button("🚪 Выход"):
+    st.success("Спасибо за использование приложения! Закройте вкладку браузера.")
+    st.stop()
