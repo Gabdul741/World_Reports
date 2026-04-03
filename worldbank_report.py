@@ -259,14 +259,31 @@ if len(filtered) > 0:
 #for key, value in sources.items():
 #    st.markdown(f"- **{key}:** {value}"
 #        )
+#st.markdown("---")
+#st.subheader("📚 Источники данных:")
+#sources = {
+#    "ВВП": "World Bank | github.com/datasets/gdp",
+#    "Население": "World Bank | github.com/datasets/population",
+#    "Инфляция": "World Bank | github.com/datasets/inflation",
+#    "Безработица": "World Bank/ILO | github.com/ShinjiniShome/world_unemployment_dataviz",
+#    "Продолжительность жизни": "WHO | github.com/Sid-149/Life-Expectancy-Predictor",
+#}
+#for key, value in sources.items():
+#    st.markdown(f"- **{key}:** {value}")
+
 st.markdown("---")
 st.subheader("📚 Источники данных:")
 sources = {
-    "ВВП": "World Bank | github.com/datasets/gdp",
-    "Население": "World Bank | github.com/datasets/population",
-    "Инфляция": "World Bank | github.com/datasets/inflation",
-    "Безработица": "World Bank/ILO | github.com/ShinjiniShome/world_unemployment_dataviz",
-    "Продолжительность жизни": "WHO | github.com/Sid-149/Life-Expectancy-Predictor",
+    "ВВП": ("gdp.csv", "World Bank — ВВП в долл. США", "github.com/datasets/gdp"),
+    "Население": ("population.csv", "World Bank — Население стран", "github.com/datasets/population"),
+    "Инфляция": ("inflation.csv", "World Bank — Инфляция потребительских цен (%)", "github.com/datasets/inflation"),
+    "Безработица": ("unemployment.csv", "World Bank/ILO — Уровень безработицы (%)", "github.com/ShinjiniShome/world_unemployment_dataviz"),
+    "Продолжительность жизни": ("life_expectancy.csv", "WHO — Продолжительность жизни при рождении", "github.com/Sid-149/Life-Expectancy-Predictor"),
+    "ВВП на душу населения": ("gdp_per_capita.csv", "World Bank — ВВП на душу населения в долл. США", "ourworldindata.org/grapher/gdp-per-capita-worldbank"),
+    "CO2 выбросы": ("co2.csv", "Our World in Data — CO2 выбросы на душу населения (т)", "ourworldindata.org/grapher/co-emissions-per-capita"),
+    "Военные расходы": ("military.csv", "SIPRI — Военные расходы (% от ВВП)", "ourworldindata.org/grapher/military-expenditure-as-a-share-of-gdp"),
+    "Расходы на образование": ("education.csv", "UNESCO — Расходы на образование (% от ВВП)", "ourworldindata.org/grapher/total-government-expenditure-on-education-gdp"),
+    "Грамотность населения": ("literacy.csv", "UNESCO — Уровень грамотности взрослых (%)", "ourworldindata.org/grapher/literacy-rate-adults"),
 }
-for key, value in sources.items():
-    st.markdown(f"- **{key}:** {value}")
+for indicator_name, (filename, description, source) in sources.items():
+    st.markdown(f"- **{indicator_name}:** {description} | Файл: `{filename}` | Источник: {source}")
