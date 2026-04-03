@@ -108,7 +108,7 @@ countries = df["Country Name"].unique().tolist()
 #else:
 #    default_countries = ["Russian Federation", "United States", "China", "Germany"]
 
-#default_countries = [c for c in default_countries if c in countries]
+default_countries = [c for c in default_countries if c in countries]
 if indicator == "Продолжительность жизни":
     default_countries = ["Russia", "United States", "China", "Germany"]
 else:
