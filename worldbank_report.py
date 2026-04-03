@@ -26,7 +26,13 @@ pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 st.title("🌍 Отчёты по мировым данным")
 
 #indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица"])
-indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица", "Продолжительность жизни"])
+#indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица", "Продолжительность жизни"])
+indicator = st.selectbox("Выберите показатель:", [
+    "ВВП", "Население", "Инфляция", "Безработица", 
+    "Продолжительность жизни", "ВВП на душу населения",
+    "CO2 выбросы", "Военные расходы", "Расходы на образование",
+    "Грамотность населения"
+])
 scale = st.selectbox("Масштаб значений:", [ "Исходные", "Тысячи", "Миллионы", "Миллиарды"])
 
 if indicator == "ВВП":
@@ -51,22 +57,63 @@ elif indicator == "Безработица":
     ylabel = "Безработица"
     title = "Безработица по странам"
     units = "%"
-else:
+#else:
+#    df = pd.read_csv(os.path.join(base_dir, "life_expectancy.csv"))
+#    df = df.rename(columns={"Country": "Country Name", "Life expectancy": "Value"})
+#    ylabel = "Продолжительность жизни"
+#    title = "Продолжительность жизни по странам"
+#    units = "лет"
+elif indicator == "Продолжительность жизни":
     df = pd.read_csv(os.path.join(base_dir, "life_expectancy.csv"))
     df = df.rename(columns={"Country": "Country Name", "Life expectancy": "Value"})
     ylabel = "Продолжительность жизни"
     title = "Продолжительность жизни по странам"
     units = "лет"
+elif indicator == "ВВП на душу населения":
+    df = pd.read_csv(os.path.join(base_dir, "gdp_per_capita.csv"))
+    df = df.rename(columns={"Entity": "Country Name", "GDP per capita": "Value"})
+    ylabel = "ВВП на душу населения"
+    title = "ВВП на душу населения"
+    units = "долл. США"
+elif indicator == "CO2 выбросы":
+    df = pd.read_csv(os.path.join(base_dir, "co2.csv"))
+    df = df.rename(columns={"Entity": "Country Name", "CO₂ emissions per capita": "Value"})
+    ylabel = "CO2 выбросы"
+    title = "CO2 выбросы на душу населения"
+    units = "т"
+elif indicator == "Военные расходы":
+    df = pd.read_csv(os.path.join(base_dir, "military.csv"))
+    df = df.rename(columns={"Entity": "Country Name", "Military expenditure (% of GDP)": "Value"})
+    ylabel = "Военные расходы"
+    title = "Военные расходы (% от ВВП)"
+    units = "%"
+elif indicator == "Расходы на образование":
+    df = pd.read_csv(os.path.join(base_dir, "education.csv"))
+    df = df.rename(columns={"Entity": "Country Name", "Total across all levels of education": "Value"})
+    ylabel = "Расходы на образование"
+    title = "Расходы на образование (% от ВВП)"
+    units = "%"
+else:
+    df = pd.read_csv(os.path.join(base_dir, "literacy.csv"))
+    df = df.rename(columns={"Entity": "Country Name", "Literacy rate among adults": "Value"})
+    ylabel = "Грамотность населения"
+    title = "Грамотность населения"
+    units = "%"
 
 countries = df["Country Name"].unique().tolist()
 #selected = st.multiselect("Выберите страны:", countries,
 #    default=["Russian Federation", "United States", "China", "Germany"])
+#if indicator == "Продолжительность жизни":
+#    default_countries = ["Russia", "United States", "China", "Germany"]
+#else:
+#    default_countries = ["Russian Federation", "United States", "China", "Germany"]
+
+#default_countries = [c for c in default_countries if c in countries]
 if indicator == "Продолжительность жизни":
     default_countries = ["Russia", "United States", "China", "Germany"]
 else:
     default_countries = ["Russian Federation", "United States", "China", "Germany"]
 
-default_countries = [c for c in default_countries if c in countries]
 selected = st.multiselect("Выберите страны:", countries,
     default=default_countries)
 year_from = st.slider("С года:", 1960, 2023, 2000)
