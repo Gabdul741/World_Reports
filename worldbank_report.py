@@ -45,7 +45,7 @@ with st.expander(" About"):
     **Версия:** 1.0  
     **Данные:** World Bank, WHO, UNESCO, SIPRI, Our World in Data  
     **Технологии:** Python, Streamlit, Pandas, Matplotlib, ReportLab  
-    **Автор **Совместное производство:** Gabdul741 и Claude (Sonnet 4.6) — Anthropic  
+    **Автор Совместное производство:** Gabdul741 и Claude (Sonnet 4.6) — Anthropic
     **Ссылка:** world-reports-gabdul741.streamlit.app
     """)
 #indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица"])
