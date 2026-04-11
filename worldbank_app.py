@@ -9,6 +9,9 @@ import requests
 from datetime import datetime
 import io
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 # ===== НАСТРОЙКИ PDF =====
 try:
