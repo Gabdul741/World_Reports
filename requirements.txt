@@ -1,12 +1,7 @@
 streamlit
 pandas
-matplotlib
-reportlab
-openpyxl
-streamlit
-pandas
 plotly
 requests
 reportlab
-kaleido
+matplotlib
 numpy
