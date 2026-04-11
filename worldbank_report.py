@@ -36,7 +36,7 @@ with st.expander("❓ Help — Инструкция"):
     6. **Создайте PDF** — нажмите кнопку для скачивания отчёта
     """)
 
-with st.expander("ℹ️ About"):
+with st.expander(" About"):
     st.markdown("""
     **🌍 Отчёты по мировым данным**
     
@@ -45,7 +45,7 @@ with st.expander("ℹ️ About"):
     **Версия:** 1.0  
     **Данные:** World Bank, WHO, UNESCO, SIPRI, Our World in Data  
     **Технологии:** Python, Streamlit, Pandas, Matplotlib, ReportLab  
-    **Автор:** Gabdul741  
+    **Автор **Совместное производство:** Gabdul741 и Claude (Sonnet 4.6) — Anthropic  
     **Ссылка:** world-reports-gabdul741.streamlit.app
     """)
 #indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица"])
