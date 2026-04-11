@@ -125,6 +125,10 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     if not PDF_AVAILABLE:
         return None
     
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    
     try:
         pdfmetrics.registerFont(TTFont('DejaVu', 'DejaVuSans.ttf'))
         FONT_NAME = 'DejaVu'
@@ -138,87 +142,73 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     if df_clean.empty:
         return None
     
-    # ===== ЦВЕТНОЙ ГРАФИК =====
-    fig = px.line(
-        df_clean, 
-        x="date", 
-        y="value_scaled", 
-        color="country",
-        markers=True, 
-        color_discrete_sequence=px.colors.qualitative.Set1
-    )
-    fig.update_layout(
-        template='plotly_white',
-        legend_title_text='Страны',
-        xaxis_title='Год',
-        yaxis_title=f'Значение ({scale_name})'
-    )
+    # ===== ГРАФИК ЧЕРЕЗ MATPLOTLIB =====
+    fig, ax = plt.subplots(figsize=(10, 5))
+    
+    unique_countries = df_clean['country'].unique()
+    colors = plt.cm.Set1(range(len(unique_countries)))
+    
+    for i, country in enumerate(unique_countries):
+        country_data = df_clean[df_clean['country'] == country]
+        ax.plot(country_data['date'], country_data['value_scaled'], 
+                marker='o', label=country, color=colors[i], linewidth=2, markersize=4)
+    
+    ax.set_xlabel('Год')
+    ax.set_ylabel(f'Значение ({scale_name})')
+    ax.set_title(indicator_name)
+    ax.legend(loc='best', fontsize=8)
+    ax.grid(True, alpha=0.3)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-        pio.write_image(fig, tmp.name, width=600, height=350, scale=2)
+        plt.savefig(tmp.name, dpi=150, bbox_inches='tight')
         chart_path = tmp.name
     
+    plt.close()
+    
+    # ===== PDF =====
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15*mm, leftMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
     styles = getSampleStyleSheet()
     
-    # Стили
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, fontName=FONT_NAME, spaceAfter=10)
     subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=8, textColor=colors.gray, fontName=FONT_NAME)
     table_title_style = ParagraphStyle('TableTitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4472C4'), fontName=FONT_NAME)
     
     story = []
     
-    # ===== СТРАНИЦА 1: ЗАГОЛОВОК И ГРАФИК =====
     story.append(Paragraph(f"{indicator_name} ({scale_name})", title_style))
     story.append(Spacer(1, 5))
     story.append(Paragraph(f"Период: {start_year} - {end_year}", subtitle_style))
     story.append(Paragraph(f"Страны: {', '.join(countries)}", subtitle_style))
-
     story.append(Paragraph(f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}", subtitle_style))
     story.append(Paragraph(f"Источник: {DATA_SOURCE}", subtitle_style))
     story.append(Paragraph(f"Файл: {REPORT_NAME}", subtitle_style))
-    story.append(Spacer(1, 10))    
+    story.append(Spacer(1, 10))
+    
     story.append(Paragraph("Динамика показателя", title_style))
     story.append(Spacer(1, 5))
     story.append(Image(chart_path, width=500, height=280))
     story.append(Spacer(1, 15))
-    story.append(Paragraph(f"Масштаб: {scale_name}", subtitle_style))
-    story.append(Spacer(1, 3))    
-    # ===== ПОДГОТОВКА ТАБЛИЦЫ =====
-    table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2)
-    table_df = table_df.sort_index()
     
-    # Заголовки с масштабом
-    headers = ['Год'] + list(table_df.columns)    
-    # Разбиваем на страницы по 18 строк
-    rows_per_page = 18
-    total_rows = len(table_df)
-    rows_on_first_page = min(14, total_rows)
-    
-    # Функция форматирования строки
-    def format_row(row):
-        formatted = [str(row.name)]
-        for val in row:
-            if pd.isna(val):
-                formatted.append("-")
-            elif isinstance(val, (int, float)):
-                if abs(val) >= 1000:
-                    formatted.append(f"{val:,.2f}".replace(',', ' '))
-                else:
-                    formatted.append(f"{val:.2f}")
-            else:
-                formatted.append(str(val))
-        return formatted
-    
-    # ===== ПЕРВАЯ СТРАНИЦА ТАБЛИЦЫ =====
     story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
     story.append(Spacer(1, 5))
     
-    page_data = table_df.iloc[0:rows_on_first_page]
+    table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2)
+    table_df = table_df.sort_index()
+    
+    headers = ['Год'] + list(table_df.columns)
     table_data = [headers]
-    for idx, row in page_data.iterrows():
-        table_data.append(format_row(row))
+    
+    for idx, row in table_df.iterrows():
+        row_data = [str(idx)]
+        for val in row:
+            if pd.isna(val):
+                row_data.append("-")
+            else:
+                row_data.append(f"{val:,.2f}".replace(',', ' '))
+        table_data.append(row_data)
     
     table = Table(table_data, repeatRows=1)
     table.setStyle(TableStyle([
@@ -233,47 +223,12 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     ]))
     story.append(table)
     
-    # ===== ПОСЛЕДУЮЩИЕ СТРАНИЦЫ ТАБЛИЦЫ =====
-    remaining_rows = total_rows - rows_on_first_page
-    if remaining_rows > 0:
-        story.append(PageBreak())
-        current_start = rows_on_first_page
-        
-        while current_start < total_rows:
-            story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
-            story.append(Spacer(1, 5))
-            
-            end_idx = min(current_start + rows_per_page, total_rows)
-            page_data = table_df.iloc[current_start:end_idx]
-            
-            table_data = [headers]
-            for idx, row in page_data.iterrows():
-                table_data.append(format_row(row))
-            
-            table = Table(table_data, repeatRows=1)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),
-                ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-                ('FONTSIZE', (0, 1), (-1, -1), 7),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
-            ]))
-            story.append(table)
-            
-            current_start = end_idx
-            if current_start < total_rows:
-                story.append(PageBreak())
-    
     doc.build(story)
     
     import os
     os.unlink(chart_path)
     buffer.seek(0)
     return buffer.getvalue()
-
 # ===== ЗАГРУЗКА СПИСКА СТРАН =====
 countries_dict = get_countries_list()
 
