@@ -208,23 +208,6 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2).sort_index()
     headers = ['Год'] + list(table_df.columns)
     
-    # ===== АВТОМАТИЧЕСКИЙ РАСЧЁТ СТРОК =====
-    PAGE_HEIGHT_MM = 297
-    TOP_MARGIN = 15
-    BOTTOM_MARGIN = 15
-    TITLE_HEIGHT = 30
-    TABLE_HEADER_HEIGHT = 10
-    ROW_HEIGHT = 5.5
-    
-    available_height = PAGE_HEIGHT_MM - TOP_MARGIN - BOTTOM_MARGIN - TITLE_HEIGHT - TABLE_HEADER_HEIGHT
-    rows_per_page = int(available_height / ROW_HEIGHT)
-    rows_per_page = max(10, min(35, rows_per_page))
-    
-    total_rows = len(table_df)
-    first_page_rows = min(rows_per_page - 4, total_rows)
-    if first_page_rows < 5:
-        first_page_rows = min(rows_per_page, total_rows)
-    
     # Функция форматирования строки
     def format_row(row):
         row_data = [str(row.name)]
@@ -235,35 +218,44 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
                 row_data.append(f"{val:,.2f}".replace(',', ' '))
         return row_data
     
-    # ===== ПЕРВАЯ СТРАНИЦА ТАБЛИЦЫ =====
-    story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
-    story.append(Spacer(1, 5))
+    # Количество строк на страницу (без первой страницы)
+    rows_per_page = 25
+    total_rows = len(table_df)
     
-    page_data = table_df.iloc[0:first_page_rows]
-    table_data = [headers]
-    for idx, row in page_data.iterrows():
-        table_data.append(format_row(row))
-    
-    table = Table(table_data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
-    ]))
-    story.append(table)
-    
-    # ===== ПОСЛЕДУЮЩИЕ СТРАНИЦЫ ТАБЛИЦЫ =====
+    # Первая страница таблицы (15 строк, так как место занято графиком)
+    first_page_rows = 15
     remaining_rows = total_rows - first_page_rows
+    
+    # Первая часть таблицы (после графика)
+    if first_page_rows > 0:
+        story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
+        story.append(Spacer(1, 5))
+        
+        page_data = table_df.iloc[0:first_page_rows]
+        table_data = [headers]
+        for idx, row in page_data.iterrows():
+            table_data.append(format_row(row))
+        
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
+        ]))
+        story.append(table)
+    
+    # Остальные страницы таблицы
     if remaining_rows > 0:
         story.append(PageBreak())
         current_start = first_page_rows
         
         while current_start < total_rows:
+            # ЗАГОЛОВОК НА КАЖДОЙ СТРАНИЦЕ
             story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
             story.append(Spacer(1, 5))
             
