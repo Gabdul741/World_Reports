@@ -136,7 +136,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     import os
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
@@ -189,6 +189,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     
     story = []
     
+    # ===== СТРАНИЦА 1: ЗАГОЛОВОК И ГРАФИК =====
     story.append(Paragraph(f"{indicator_name} ({scale_name})", title_style))
     story.append(Spacer(1, 5))
     story.append(Paragraph(f"Период: {start_year} - {end_year}", subtitle_style))
@@ -203,21 +204,33 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     story.append(Image(chart_path, width=500, height=280))
     story.append(Spacer(1, 15))
     
-    story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
-    story.append(Spacer(1, 5))
-    
+    # ===== ПОДГОТОВКА ТАБЛИЦЫ =====
     table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2).sort_index()
     headers = ['Год'] + list(table_df.columns)
-    table_data = [headers]
     
-    for idx, row in table_df.iterrows():
-        row_data = [str(idx)]
+    # Разбиваем таблицу на страницы
+    rows_per_page = 18
+    total_rows = len(table_df)
+    first_page_rows = min(14, total_rows)
+    
+    # Функция форматирования строки
+    def format_row(row):
+        row_data = [str(row.name)]
         for val in row:
             if pd.isna(val):
                 row_data.append("-")
             else:
                 row_data.append(f"{val:,.2f}".replace(',', ' '))
-        table_data.append(row_data)
+        return row_data
+    
+    # ===== ПЕРВАЯ СТРАНИЦА ТАБЛИЦЫ =====
+    story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
+    story.append(Spacer(1, 5))
+    
+    page_data = table_df.iloc[0:first_page_rows]
+    table_data = [headers]
+    for idx, row in page_data.iterrows():
+        table_data.append(format_row(row))
     
     table = Table(table_data, repeatRows=1)
     table.setStyle(TableStyle([
@@ -231,6 +244,41 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
         ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
     ]))
     story.append(table)
+    
+    # ===== ПОСЛЕДУЮЩИЕ СТРАНИЦЫ ТАБЛИЦЫ =====
+    remaining_rows = total_rows - first_page_rows
+    if remaining_rows > 0:
+        story.append(PageBreak())
+        current_start = first_page_rows
+        
+        while current_start < total_rows:
+            # ЗАГОЛОВОК НА КАЖДОЙ СТРАНИЦЕ
+            story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
+            story.append(Spacer(1, 5))
+            
+            end_idx = min(current_start + rows_per_page, total_rows)
+            page_data = table_df.iloc[current_start:end_idx]
+            
+            table_data = [headers]
+            for idx, row in page_data.iterrows():
+                table_data.append(format_row(row))
+            
+            table = Table(table_data, repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
+            ]))
+            story.append(table)
+            
+            current_start = end_idx
+            if current_start < total_rows:
+                story.append(PageBreak())
     
     doc.build(story)
     
