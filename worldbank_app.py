@@ -310,11 +310,10 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
 countries_dict = get_countries_list()
 
 # ===== БОКОВАЯ ПАНЕЛЬ =====
+# ===== БОКОВАЯ ПАНЕЛЬ =====
 with st.sidebar:
     st.header("⚙️ Настройки")
-    st.divider()
-    st.caption(f"📊 Источник: {DATA_SOURCE}")
-    st.caption(f"📄 Файл: {REPORT_NAME}")    
+    
     selected_countries = st.multiselect(
         "🌍 Страны",
         options=list(countries_dict.keys()),
@@ -349,12 +348,50 @@ with st.sidebar:
     
     load_button = st.button("🔄 Загрузить данные", type="primary", key="load")
     exit_button = st.button("🚪 EXIT", type="secondary", key="exit")
-
-# ===== EXIT =====
-if exit_button:
-    st.error("👋 Завершение работы...")
-    st.info("🔄 Обновите страницу (F5) для перезапуска")
-    st.stop()
+    
+    st.divider()
+    
+    # ===== HELP И ABOUT =====
+    with st.expander("❓ HELP - Инструкция"):
+        st.markdown("""
+        **📋 Как пользоваться приложением:**
+        
+        1. **Выберите страны** из списка (можно несколько)
+        2. **Найдите показатель** через поиск или выберите из списка
+        3. **Выберите масштаб** (исходный, тысячи, миллионы, миллиарды)
+        4. **Укажите период** (годы от и до)
+        5. **Нажмите "Загрузить данные"**
+        
+        **📊 Результаты:**
+        - Таблица с данщими (годы по строкам, страны по колонкам)
+        - График динамики показателя
+        - Кнопки для скачивания CSV и PDF
+        
+        **💾 Экспорт:**
+        - **CSV** - для Excel и других таблиц
+        - **PDF** - готовый отчет с графиком и таблицей
+        
+        **🚪 Выход:** кнопка EXIT внизу панели
+        """)
+    
+    with st.expander("ℹ️ ABOUT - О приложении"):
+        st.markdown(f"""
+        **🌍 World Bank Data Explorer**
+        
+        Приложение для анализа данных Всемирного банка.
+        
+        **Данные:** World Bank Open Data (API)
+        
+        **Показатели:** ВВП, население, инфляция, безработица, энергетика, здравоохранение и другие
+        
+        **Разработка:** 
+        - GABDUL741
+        - DeepSeek AI (версия 2025)
+        
+        **Технологии:** Python, Streamlit, Plotly, Matplotlib, ReportLab
+        
+        **Версия:** 1.0
+        """)
 
 # ===== ОСНОВНОЙ БЛОК =====
 if load_button and selected_countries:
