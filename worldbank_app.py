@@ -219,9 +219,9 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
         return row_data
     
     # ===== РАЗБИЕНИЕ ТАБЛИЦЫ =====
-    rows_per_page = 32
+    rows_per_page = 28
     total_rows = len(table_df)
-    first_page_rows = 22
+    first_page_rows = 15
     
     # Если строк меньше или равно first_page_rows - всё на одной странице
     if total_rows <= first_page_rows:
