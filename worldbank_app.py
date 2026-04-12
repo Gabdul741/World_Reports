@@ -131,6 +131,16 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    import tempfile
+    import io
+    import os
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     
     try:
         pdfmetrics.registerFont(TTFont('DejaVu', 'DejaVuSans.ttf'))
@@ -145,16 +155,15 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     if df_clean.empty:
         return None
     
-    # ===== ГРАФИК ЧЕРЕЗ MATPLOTLIB =====
+    # ===== ГРАФИК =====
     fig, ax = plt.subplots(figsize=(10, 5))
-    
     unique_countries = df_clean['country'].unique()
-    colors = plt.cm.Set1(range(len(unique_countries)))
+    color_list = plt.cm.Set1(range(len(unique_countries)))
     
     for i, country in enumerate(unique_countries):
         country_data = df_clean[df_clean['country'] == country]
         ax.plot(country_data['date'], country_data['value_scaled'], 
-                marker='o', label=country, color=colors[i], linewidth=2, markersize=4)
+                marker='o', label=country, color=color_list[i], linewidth=2, markersize=4)
     
     ax.set_xlabel('Год')
     ax.set_ylabel(f'Значение ({scale_name})')
@@ -167,7 +176,6 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
         plt.savefig(tmp.name, dpi=150, bbox_inches='tight')
         chart_path = tmp.name
-    
     plt.close()
     
     # ===== PDF =====
@@ -176,7 +184,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, fontName=FONT_NAME, spaceAfter=10)
-    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=8, textColor=colors.grey, fontName=FONT_NAME)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'), fontName=FONT_NAME)
     table_title_style = ParagraphStyle('TableTitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4472C4'), fontName=FONT_NAME)
     
     story = []
@@ -186,8 +194,8 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     story.append(Paragraph(f"Период: {start_year} - {end_year}", subtitle_style))
     story.append(Paragraph(f"Страны: {', '.join(countries)}", subtitle_style))
     story.append(Paragraph(f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}", subtitle_style))
-    story.append(Paragraph(f"Источник: {DATA_SOURCE}", subtitle_style))
-    story.append(Paragraph(f"Файл: {REPORT_NAME}", subtitle_style))
+    story.append(Paragraph(f"Источник: World Bank Open Data", subtitle_style))
+    story.append(Paragraph(f"Файл: World_Bank_Report", subtitle_style))
     story.append(Spacer(1, 10))
     
     story.append(Paragraph("Динамика показателя", title_style))
@@ -198,9 +206,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
     story.append(Spacer(1, 5))
     
-    table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2)
-    table_df = table_df.sort_index()
-    
+    table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2).sort_index()
     headers = ['Год'] + list(table_df.columns)
     table_data = [headers]
     
@@ -216,19 +222,18 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     table = Table(table_data, repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
         ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
     ]))
     story.append(table)
     
     doc.build(story)
     
-    import os
     os.unlink(chart_path)
     buffer.seek(0)
     return buffer.getvalue()
