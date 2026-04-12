@@ -218,16 +218,36 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
                 row_data.append(f"{val:,.2f}".replace(',', ' '))
         return row_data
     
-    # Количество строк на страницу (без первой страницы)
+    # ===== РАЗБИЕНИЕ ТАБЛИЦЫ =====
     rows_per_page = 32
     total_rows = len(table_df)
-    
-    # Первая страница таблицы (15 строк, так как место занято графиком)
     first_page_rows = 22
-    remaining_rows = total_rows - first_page_rows
     
-    # Первая часть таблицы (после графика)
-    if first_page_rows > 0:
+    # Если строк меньше или равно first_page_rows - всё на одной странице
+    if total_rows <= first_page_rows:
+        story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
+        story.append(Spacer(1, 5))
+        
+        page_data = table_df.iloc[0:total_rows]
+        table_data = [headers]
+        for idx, row in page_data.iterrows():
+            table_data.append(format_row(row))
+        
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
+        ]))
+        story.append(table)
+    
+    else:
+        # Первая страница таблицы
         story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
         story.append(Spacer(1, 5))
         
@@ -248,14 +268,14 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
             ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
         ]))
         story.append(table)
-    
-    # Остальные страницы таблицы
-    if remaining_rows > 0:
-        story.append(PageBreak())
+        
+        # Остальные страницы
+        remaining_rows = total_rows - first_page_rows
         current_start = first_page_rows
         
         while current_start < total_rows:
-            # ЗАГОЛОВОК НА КАЖДОЙ СТРАНИЦЕ
+            story.append(PageBreak())
+            
             story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
             story.append(Spacer(1, 5))
             
@@ -280,8 +300,6 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
             story.append(table)
             
             current_start = end_idx
-            if current_start < total_rows:
-                story.append(PageBreak())
     
     doc.build(story)
     
