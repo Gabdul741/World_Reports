@@ -219,11 +219,11 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
         return row_data
     
     # Количество строк на страницу (без первой страницы)
-    rows_per_page = 25
+    rows_per_page = 32
     total_rows = len(table_df)
     
     # Первая страница таблицы (15 строк, так как место занято графиком)
-    first_page_rows = 15
+    first_page_rows = 22
     remaining_rows = total_rows - first_page_rows
     
     # Первая часть таблицы (после графика)
