@@ -346,12 +346,9 @@ with st.sidebar:
     start_year = st.number_input("Год от", 1960, 2023, 2000, key="start")
     end_year = st.number_input("Год до", 1960, 2023, 2023, key="end")
     
-    load_button = st.button("🔄 Загрузить данные", type="primary", key="load")
-    exit_button = st.button("🚪 EXIT", type="secondary", key="exit")
-    
     st.divider()
     
-    # ===== HELP И ABOUT =====
+    # ===== HELP И ABOUT (ПОДНЯТЫ ВВЕРХ) =====
     with st.expander("❓ HELP - Инструкция"):
         st.markdown("""
         **📋 Как пользоваться приложением:**
@@ -363,7 +360,7 @@ with st.sidebar:
         5. **Нажмите "Загрузить данные"**
         
         **📊 Результаты:**
-        - Таблица с данщими (годы по строкам, страны по колонкам)
+        - Таблица с данными (годы по строкам, страны по колонкам)
         - График динамики показателя
         - Кнопки для скачивания CSV и PDF
         
@@ -371,11 +368,11 @@ with st.sidebar:
         - **CSV** - для Excel и других таблиц
         - **PDF** - готовый отчет с графиком и таблицей
         
-        **🚪 Выход:** кнопка EXIT внизу панели
+        **🔄 Перезагрузка:** кнопка EXIT внизу панели
         """)
     
     with st.expander("ℹ️ ABOUT - О приложении"):
-        st.markdown(f"""
+        st.markdown("""
         **🌍 World Bank Data Explorer**
         
         Приложение для анализа данных Всемирного банка.
@@ -392,7 +389,16 @@ with st.sidebar:
         
         **Версия:** 1.0
         """)
+    
+    st.divider()
+    
+    load_button = st.button("🔄 Загрузить данные", type="primary", key="load")
+    exit_button = st.button("🔄 EXIT / Перезагрузка", type="secondary", key="exit")
 
+# ===== EXIT С ПЕРЕЗАГРУЗКОЙ =====
+if exit_button:
+    st.cache_data.clear()
+    st.rerun()
 # ===== ОСНОВНОЙ БЛОК =====
 if load_button and selected_countries:
     with st.spinner("Загрузка..."):
