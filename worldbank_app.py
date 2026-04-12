@@ -208,10 +208,22 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2).sort_index()
     headers = ['Год'] + list(table_df.columns)
     
-    # Разбиваем таблицу на страницы
-    rows_per_page = 18
+    # ===== АВТОМАТИЧЕСКИЙ РАСЧЁТ СТРОК =====
+    PAGE_HEIGHT_MM = 297
+    TOP_MARGIN = 15
+    BOTTOM_MARGIN = 15
+    TITLE_HEIGHT = 30
+    TABLE_HEADER_HEIGHT = 10
+    ROW_HEIGHT = 5.5
+    
+    available_height = PAGE_HEIGHT_MM - TOP_MARGIN - BOTTOM_MARGIN - TITLE_HEIGHT - TABLE_HEADER_HEIGHT
+    rows_per_page = int(available_height / ROW_HEIGHT)
+    rows_per_page = max(10, min(35, rows_per_page))
+    
     total_rows = len(table_df)
-    first_page_rows = min(14, total_rows)
+    first_page_rows = min(rows_per_page - 4, total_rows)
+    if first_page_rows < 5:
+        first_page_rows = min(rows_per_page, total_rows)
     
     # Функция форматирования строки
     def format_row(row):
@@ -252,7 +264,6 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
         current_start = first_page_rows
         
         while current_start < total_rows:
-            # ЗАГОЛОВОК НА КАЖДОЙ СТРАНИЦЕ
             story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
             story.append(Spacer(1, 5))
             
@@ -285,7 +296,6 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     os.unlink(chart_path)
     buffer.seek(0)
     return buffer.getvalue()
-    
 # ===== ЗАГРУЗКА СПИСКА СТРАН =====
 countries_dict = get_countries_list()
 
