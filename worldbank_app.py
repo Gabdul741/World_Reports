@@ -219,7 +219,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
         return row_data
     
     # ===== РАЗБИЕНИЕ ТАБЛИЦЫ =====
-    rows_per_page = 28
+    rows_per_page = 34
     total_rows = len(table_df)
     first_page_rows = 15
     
