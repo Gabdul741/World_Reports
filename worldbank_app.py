@@ -176,7 +176,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, fontName=FONT_NAME, spaceAfter=10)
-    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=8, textColor=colors.gray, fontName=FONT_NAME)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=8, textColor=colors.grey, fontName=FONT_NAME)
     table_title_style = ParagraphStyle('TableTitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4472C4'), fontName=FONT_NAME)
     
     story = []
