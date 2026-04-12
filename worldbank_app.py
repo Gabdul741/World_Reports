@@ -232,6 +232,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     os.unlink(chart_path)
     buffer.seek(0)
     return buffer.getvalue()
+    
 # ===== ЗАГРУЗКА СПИСКА СТРАН =====
 countries_dict = get_countries_list()
 
