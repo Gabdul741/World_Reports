@@ -334,11 +334,22 @@ countries_dict = get_countries_list()
 with st.sidebar:
     st.header("⚙️ Настройки")
     
+    # Поиск стран
+    country_search = st.text_input("🔍 Поиск страны", placeholder="Россия, США, Германия...", key="country_search")
+    
+    if country_search:
+        filtered_countries = {
+            code: name for code, name in countries_dict.items()
+            if country_search.lower() in name.lower()
+        }
+    else:
+        filtered_countries = countries_dict
+    
     selected_countries = st.multiselect(
         "🌍 Страны",
-        options=list(countries_dict.keys()),
-        format_func=lambda x: countries_dict[x],
-        default=["RU", "US", "DE"],
+        options=list(filtered_countries.keys()),
+        format_func=lambda x: filtered_countries[x],
+        default=["RU", "US", "DE"] if "RU" in filtered_countries else [],
         key="countries"
     )
     
@@ -363,12 +374,15 @@ with st.sidebar:
         key="scale"
     )
     
-    start_year = st.number_input("Год от", 1960, 2023, 2000, key="start")
-    end_year = st.number_input("Год до", 1960, 2023, 2023, key="end")
+    col1, col2 = st.columns(2)
+    with col1:
+        start_year = st.number_input("Год от", 1960, 2023, 2000, key="start")
+    with col2:
+        end_year = st.number_input("Год до", 1960, 2023, 2023, key="end")
     
     st.divider()
     
-    # ===== HELP И ABOUT (ПОДНЯТЫ ВВЕРХ) =====
+    # ===== HELP (ПОДНЯТ ВВЕРХ) =====
     with st.expander("❓ HELP - Инструкция"):
         st.markdown("""
         **📋 Как пользоваться приложением:**
@@ -413,8 +427,10 @@ with st.sidebar:
     st.divider()
     
     load_button = st.button("🔄 Загрузить данные", type="primary", key="load")
-    exit_button = st.button("🔄 EXIT / Перезагрузка", type="secondary", key="exit")
-
+    exit_button = st.button("🚪 EXIT / Перезагрузка", type="secondary", key="exit")
+    
+    # Подсказка о кнопке EXIT
+    st.caption("💡 **Совет:** Если не видите кнопку EXIT, потяните правую границу боковой панели →")
 # ===== EXIT С ПЕРЕЗАГРУЗКОЙ =====
 if exit_button:
     st.cache_data.clear()
