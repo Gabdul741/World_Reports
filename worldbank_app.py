@@ -617,10 +617,20 @@ countries_dict = get_countries_list()
 # ===== БОКОВАЯ ПАНЕЛЬ =====
 # ===== БОКОВАЯ ПАНЕЛЬ =====
 with st.sidebar:
-    st.header("⚙️ Настройки")
+    # Переключатель языка
+    language = st.radio("🌐 Language / Язык", ["Русский", "English"], key="lang")
+    st.divider()
+    
+    # Выбираем нужный словарь
+    if language == "Русский":
+        t = TEXTS["Русский"]
+    else:
+        t = TEXTS["English"]
+    
+    st.header(t["settings"])
     
     # Поиск стран
-    country_search = st.text_input("🔍 Поиск страны", placeholder="Россия, США, Германия...", key="country_search")
+    country_search = st.text_input(t["search_country"], placeholder=t["search_country_placeholder"], key="country_search")
     
     if country_search:
         filtered_countries = {
@@ -631,7 +641,7 @@ with st.sidebar:
         filtered_countries = countries_dict
     
     selected_countries = st.multiselect(
-        "🌍 Страны",
+        t["countries"],
         options=list(filtered_countries.keys()),
         format_func=lambda x: filtered_countries[x],
         default=["RU", "US", "DE"] if "RU" in filtered_countries else [],
@@ -639,7 +649,7 @@ with st.sidebar:
     )
     
     # Поиск показателей
-    search_term = st.text_input("🔍 Поиск показателя", placeholder="ВВП, население...", key="search")
+    search_term = st.text_input(t["search_indicator"], placeholder=t["search_indicator_placeholder"], key="search")
     
     if search_term:
         filtered_indicators = {k: v for k, v in INDICATORS.items() if search_term.lower() in v.lower()}
@@ -647,87 +657,46 @@ with st.sidebar:
         filtered_indicators = INDICATORS
     
     selected_indicator = st.selectbox(
-        "📈 Показатель",
+        t["indicator"],
         options=list(filtered_indicators.keys()),
         format_func=lambda x: filtered_indicators[x],
         key="indicator"
     )
     
     selected_scale = st.selectbox(
-        "📏 Масштаб",
+        t["scale"],
         options=list(SCALES.keys()),
         key="scale"
     )
     
     col1, col2 = st.columns(2)
     with col1:
-        start_year = st.number_input("Год от", 1960, 2023, 2000, key="start")
+        start_year = st.number_input(t["year_from"], 1960, 2023, 2000, key="start")
     with col2:
-        end_year = st.number_input("Год до", 1960, 2023, 2023, key="end")
+        end_year = st.number_input(t["year_to"], 1960, 2023, 2023, key="end")
     
     st.divider()
     
-    # ===== HELP (ПОДНЯТ ВВЕРХ) =====
-    with st.expander("❓ HELP - Инструкция"):
-        st.markdown("""
-        **📋 Как пользоваться приложением:**
-        
-        1. **Выберите страны** из списка (можно несколько)
-        2. **Найдите показатель** через поиск или выберите из списка
-        3. **Выберите масштаб** (исходный, тысячи, миллионы, миллиарды)
-        4. **Укажите период** (годы от и до)
-        5. **Нажмите "Загрузить данные"**
-        
-        **📊 Результаты:**
-        - Таблица с данными (годы по строкам, страны по колонкам)
-        - График динамики показателя
-        - Кнопки для скачивания CSV и PDF
-        
-        **💾 Экспорт:**
-        - **CSV** - для Excel и других таблиц
-        - **PDF** - готовый отчет с графиком и таблицей
-        
-        **🔄 Перезагрузка:** кнопка EXIT внизу панели
-        """)
-        st.markdown("""
-        **⚠️ Важное примечание по данным:**
-        
-        - **ВВП** и **Население** — доступны для большинства стран (200+)
-        - **Другие показатели** (инфляция, безработица, энергетика и т.д.) — могут быть доступны не для всех стран
-        - Если для выбранной страны нет данных — в таблице будет отображаться прочерк "–"
-        
-        **📌 Рекомендация:** Для получения максимального количества данных выбирайте крупные экономики (США, Китай, Германия, Россия, Индия, Япония, Бразилия)
-        """)        
-    with st.expander("ℹ️ ABOUT - О приложении"):
-        st.markdown("""
-        **🌍 World Bank Data Explorer**
-        
-        Приложение для анализа данных Всемирного банка.
-        
-        **Данные:** World Bank Open Data (API)
-        
-        **Показатели:** ВВП, население, инфляция, безработица, энергетика, здравоохранение и другие
-        
-        **Разработка:** 
-        - GABDUL741
-        - DeepSeek AI (версия 2025)
-        
-        **Технологии:** Python, Streamlit, Plotly, Matplotlib, ReportLab
-        
-        **Версия:** 1.0
-        """)
+    # HELP
+    with st.expander(t["help_title"]):
+        st.markdown(t["help_text"])
+    
+    # ABOUT
+    with st.expander(t["about_title"]):
+        st.markdown(t["about_text"])
     
     st.divider()
     
-    load_button = st.button("🔄 Загрузить данные", type="primary", key="load")
-    exit_button = st.button("🚪 EXIT / Перезагрузка", type="secondary", key="exit")
+    load_button = st.button(t["load"], type="primary", key="load")
+    exit_button = st.button(t["exit"], type="secondary", key="exit")
     
-    # Подсказка о кнопке EXIT
-    st.caption("💡 **Совет:** Если не видите кнопку EXIT, потяните правую границу боковой панели →")
+    st.caption(t["exit_tip"])
+
 # ===== EXIT С ПЕРЕЗАГРУЗКОЙ =====
 if exit_button:
     st.cache_data.clear()
     st.rerun()
+
 # ===== ОСНОВНОЙ БЛОК =====
 if load_button and selected_countries:
     with st.spinner("Загрузка..."):
