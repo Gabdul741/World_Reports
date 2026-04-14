@@ -648,7 +648,7 @@ if load_button and selected_countries:
             st.subheader(f"📋 {INDICATORS[selected_indicator]}{scale_suffix}")
             st.dataframe(pivot)
             
-           fig = px.line(
+            fig = px.line(
                 df, x="date", y="value_scaled", color="country", markers=True,
                 labels={"date": t["year"], "value_scaled": f'{t["value"]} ({selected_scale})', "country": t["countries_label"]}
             )
