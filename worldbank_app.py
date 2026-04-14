@@ -429,7 +429,7 @@ def load_data_from_wb(indicator_code, countries_list, start_year, end_year, coun
     return pd.DataFrame(all_data)
 
 # ===== ФУНКЦИЯ ЭКСПОРТА В PDF =====
-def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, end_year):
+def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, end_year, lang):
     if not PDF_AVAILABLE:
         return None
     
@@ -446,6 +446,9 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     from reportlab.lib.units import mm
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+    
+    # Получаем переводы
+    t = TEXTS[lang]
     
     try:
         pdfmetrics.registerFont(TTFont('DejaVu', 'DejaVuSans.ttf'))
@@ -470,8 +473,8 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
         ax.plot(country_data['date'], country_data['value_scaled'], 
                 marker='o', label=country, color=color_list[i], linewidth=2, markersize=4)
     
-    ax.set_xlabel('Год')
-    ax.set_ylabel(f'Значение ({scale_name})')
+    ax.set_xlabel(t["year"])
+    ax.set_ylabel(f'{t["value"]} ({scale_name})')
     ax.set_title(indicator_name)
     ax.legend(loc='best', fontsize=8)
     ax.grid(True, alpha=0.3)
@@ -494,117 +497,50 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     
     story = []
     
-    # ===== СТРАНИЦА 1: ЗАГОЛОВОК И ГРАФИК =====
+    # Заголовок и метаданные
     story.append(Paragraph(f"{indicator_name} ({scale_name})", title_style))
     story.append(Spacer(1, 5))
-    story.append(Paragraph(f"Период: {start_year} - {end_year}", subtitle_style))
-    story.append(Paragraph(f"Страны: {', '.join(countries)}", subtitle_style))
-    story.append(Paragraph(f"Дата: {datetime.now().strftime('%d.%m.%Y %H:%M')}", subtitle_style))
-    story.append(Paragraph(f"Источник: World Bank Open Data", subtitle_style))
-    story.append(Paragraph(f"Файл: World_Bank_Report", subtitle_style))
+    story.append(Paragraph(f"{t['period']}: {start_year} - {end_year}", subtitle_style))
+    story.append(Paragraph(f"{t['countries_label']}: {', '.join(countries)}", subtitle_style))
+    story.append(Paragraph(f"{t['date']}: {datetime.now().strftime('%d.%m.%Y %H:%M')}", subtitle_style))
+    story.append(Paragraph(t["source"], subtitle_style))
+    story.append(Paragraph(t["file"], subtitle_style))
     story.append(Spacer(1, 10))
     
-    story.append(Paragraph("Динамика показателя", title_style))
+    story.append(Paragraph(t["dynamics"], title_style))
     story.append(Spacer(1, 5))
     story.append(Image(chart_path, width=500, height=280))
     story.append(Spacer(1, 15))
     
-    # ===== ПОДГОТОВКА ТАБЛИЦЫ =====
-    table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2).sort_index()
-    headers = ['Год'] + list(table_df.columns)
+    # Таблица
+    story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
+    story.append(Spacer(1, 5))
     
-    # Функция форматирования строки
-    def format_row(row):
-        row_data = [str(row.name)]
+    table_df = df_clean.pivot(index="date", columns="country", values="value_scaled").round(2).sort_index()
+    headers = [t["year"]] + list(table_df.columns)
+    table_data = [headers]
+    
+    for idx, row in table_df.iterrows():
+        row_data = [str(idx)]
         for val in row:
             if pd.isna(val):
                 row_data.append("-")
             else:
                 row_data.append(f"{val:,.2f}".replace(',', ' '))
-        return row_data
+        table_data.append(row_data)
     
-    # ===== РАЗБИЕНИЕ ТАБЛИЦЫ =====
-    rows_per_page = 34
-    total_rows = len(table_df)
-    first_page_rows = 15
-    
-    # Если строк меньше или равно first_page_rows - всё на одной странице
-    if total_rows <= first_page_rows:
-        story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
-        story.append(Spacer(1, 5))
-        
-        page_data = table_df.iloc[0:total_rows]
-        table_data = [headers]
-        for idx, row in page_data.iterrows():
-            table_data.append(format_row(row))
-        
-        table = Table(table_data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
-        ]))
-        story.append(table)
-    
-    else:
-        # Первая страница таблицы
-        story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
-        story.append(Spacer(1, 5))
-        
-        page_data = table_df.iloc[0:first_page_rows]
-        table_data = [headers]
-        for idx, row in page_data.iterrows():
-            table_data.append(format_row(row))
-        
-        table = Table(table_data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
-        ]))
-        story.append(table)
-        
-        # Остальные страницы
-        remaining_rows = total_rows - first_page_rows
-        current_start = first_page_rows
-        
-        while current_start < total_rows:
-            story.append(PageBreak())
-            
-            story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
-            story.append(Spacer(1, 5))
-            
-            end_idx = min(current_start + rows_per_page, total_rows)
-            page_data = table_df.iloc[current_start:end_idx]
-            
-            table_data = [headers]
-            for idx, row in page_data.iterrows():
-                table_data.append(format_row(row))
-            
-            table = Table(table_data, repeatRows=1)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),
-                ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
-                ('FONTSIZE', (0, 1), (-1, -1), 7),
-                ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
-            ]))
-            story.append(table)
-            
-            current_start = end_idx
+    table = Table(table_data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#FFFFFF')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), FONT_NAME),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTNAME', (0, 1), (-1, -1), FONT_NAME),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#CCCCCC')),
+    ]))
+    story.append(table)
     
     doc.build(story)
     
