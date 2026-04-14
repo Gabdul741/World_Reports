@@ -318,57 +318,64 @@ Application for analyzing World Bank data.
         """
     }
 }
-INDICATORS = {
-    # ===== ЭКОНОМИКА =====
+#INDICATORS 
+  # ===== ПОКАЗАТЕЛИ (Русский/English) =====
+INDICATORS_RU = {
     "NY.GDP.MKTP.CD": "💵 ВВП (долл. США)",
     "NY.GDP.PCAP.CD": "💵 ВВП на душу (долл. США)",
-    "NY.GDP.MKTP.KD.ZG": "📈 Рост ВВП (%)",
-    "NE.CON.TOTL.CD": "🛒 Расходы на потребление (долл. США)",
-    "NE.IMP.GNFS.CD": "📥 Импорт товаров и услуг (долл. США)",
-    "NE.EXP.GNFS.CD": "📤 Экспорт товаров и услуг (долл. США)",
-    
-    # ===== НАСЕЛЕНИЕ =====
-    "SP.POP.TOTL": "👥 Население (чел)",
+    "NY.GDP.MKTP.KD.ZG": "📈 Рост ВВП (годовой %)",
+    "NE.CON.TOTL.CD": "🛒 Расходы на потребление",
+    "NE.IMP.GNFS.CD": "📥 Импорт товаров и услуг",
+    "NE.EXP.GNFS.CD": "📤 Экспорт товаров и услуг",
+    "SP.POP.TOTL": "👥 Население, всего",
     "SP.POP.GROW": "📊 Рост населения (%)",
     "SP.POP.0014.TO.ZS": "🧒 Население 0-14 лет (%)",
     "SP.POP.1564.TO.ZS": "👨 Население 15-64 лет (%)",
     "SP.POP.65UP.TO.ZS": "👴 Население 65+ лет (%)",
-    "SP.DYN.LE00.IN": "❤️ Продолжительность жизни (лет)",
+    "SP.DYN.LE00.IN": "❤️ Продолжительность жизни",
     "SP.URB.TOTL.IN.ZS": "🏙️ Городское население (%)",
-    
-    # ===== РЫНОК ТРУДА =====
     "SL.UEM.TOTL.ZS": "⚠️ Безработица (%)",
-    "SL.TLF.TOTL.IN": "💼 Рабочая сила (чел)",
+    "SL.TLF.TOTL.IN": "💼 Рабочая сила",
     "SL.EMP.TOTL.SP.ZS": "✅ Занятость (% населения)",
-    "SL.UEM.1524.ZS": "🎓 Безработица молодежи (%)",
-    
-    # ===== ЗДРАВООХРАНЕНИЕ =====
     "SH.DYN.MORT": "👶 Детская смертность (на 1000)",
     "SH.XPD.CHEX.GD.ZS": "🏥 Расходы на здравоохранение (% ВВП)",
-    
-    # ===== ЭНЕРГЕТИКА =====
     "EN.ATM.CO2E.PC": "🌍 Выбросы CO2 (тонн/чел)",
-    "EG.USE.COMM.GD.PP.KD": "⚡ Энергопотребление на душу (кг)",
+    "EG.USE.COMM.GD.PP.KD": "⚡ Энергопотребление на душу",
     "AG.LND.FRST.ZS": "🌲 Лесистость (%)",
-    
-    # ===== ОБРАЗОВАНИЕ =====
     "SE.XPD.TOTL.GD.ZS": "📚 Расходы на образование (% ВВП)",
-    
-    # ===== СТРУКТУРА ЭКОНОМИКИ =====
     "NV.AGR.TOTL.ZS": "🌾 Сельское хозяйство (% ВВП)",
     "NV.IND.TOTL.ZS": "🏭 Промышленность (% ВВП)",
     "NV.SRV.TOTL.ZS": "💻 Услуги (% ВВП)",
-    
-    # ===== ФИНАНСЫ =====
     "FP.CPI.TOTL.ZG": "📈 Инфляция (%)",
 }
 
-# ===== МАСШТАБЫ =====
-SCALES = {
-    "Исходный": 1,
-    "Тысячи": 1_000,
-    "Миллионы": 1_000_000,
-    "Миллиарды": 1_000_000_000
+INDICATORS_EN = {
+    "NY.GDP.MKTP.CD": "💵 GDP (USD)",
+    "NY.GDP.PCAP.CD": "💵 GDP per capita (USD)",
+    "NY.GDP.MKTP.KD.ZG": "📈 GDP growth (annual %)",
+    "NE.CON.TOTL.CD": "🛒 Final consumption expenditure",
+    "NE.IMP.GNFS.CD": "📥 Imports of goods and services",
+    "NE.EXP.GNFS.CD": "📤 Exports of goods and services",
+    "SP.POP.TOTL": "👥 Population, total",
+    "SP.POP.GROW": "📊 Population growth (%)",
+    "SP.POP.0014.TO.ZS": "🧒 Population ages 0-14 (%)",
+    "SP.POP.1564.TO.ZS": "👨 Population ages 15-64 (%)",
+    "SP.POP.65UP.TO.ZS": "👴 Population ages 65+ (%)",
+    "SP.DYN.LE00.IN": "❤️ Life expectancy at birth",
+    "SP.URB.TOTL.IN.ZS": "🏙️ Urban population (%)",
+    "SL.UEM.TOTL.ZS": "⚠️ Unemployment (%)",
+    "SL.TLF.TOTL.IN": "💼 Labor force, total",
+    "SL.EMP.TOTL.SP.ZS": "✅ Employment to population ratio (%)",
+    "SH.DYN.MORT": "👶 Mortality rate, under-5 (per 1,000)",
+    "SH.XPD.CHEX.GD.ZS": "🏥 Health expenditure (% of GDP)",
+    "EN.ATM.CO2E.PC": "🌍 CO2 emissions (metric tons per capita)",
+    "EG.USE.COMM.GD.PP.KD": "⚡ Energy use (kg per capita)",
+    "AG.LND.FRST.ZS": "🌲 Forest area (%)",
+    "SE.XPD.TOTL.GD.ZS": "📚 Education expenditure (% of GDP)",
+    "NV.AGR.TOTL.ZS": "🌾 Agriculture (% of GDP)",
+    "NV.IND.TOTL.ZS": "🏭 Industry (% of GDP)",
+    "NV.SRV.TOTL.ZS": "💻 Services (% of GDP)",
+    "FP.CPI.TOTL.ZG": "📈 Inflation (%)",
 }
 
 # ===== ФУНКЦИЯ ЗАГРУЗКИ СПИСКА СТРАН =====
