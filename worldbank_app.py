@@ -37,6 +37,7 @@ st.title("📊 World Bank Data Explorer")
 TEXTS = {
     "Русский": {
         "title": "📊 World Bank Data Explorer",
+        "load_csv": "📥 Скачать CSV",
         "settings": "⚙️ Настройки",
         "search_country": "🔍 Поиск страны",
         "search_country_placeholder": "Россия, США, Германия...",
@@ -107,6 +108,7 @@ TEXTS = {
     },
     "English": {
         "title": "📊 World Bank Data Explorer",
+        "load_csv": "📥 Download CSV",
         "settings": "⚙️ Settings",
         "search_country": "🔍 Search country",
         "search_country_placeholder": "Russia, USA, Germany...",
