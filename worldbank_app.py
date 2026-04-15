@@ -772,40 +772,23 @@ if load_button and selected_countries:
 
             # Экспорт CSV в том же масштабе, что и PDF
             # Используем value_scaled (уже с масштабом)
-                   # CSV экспорт (с переводом и форматированием)
-            csv_pivot = df.pivot(index="date", columns="country", values="value_scaled").round(2)
-            csv_pivot = csv_pivot.sort_index()
-            
-            # Форматируем числа с пробелами
-            for col in csv_pivot.columns:
-                csv_pivot[col] = csv_pivot[col].apply(
-                    lambda x: f"{x:,.2f}".replace(',', ' ') if pd.notna(x) else ""
-                )
-            
-            csv_pivot = csv_pivot.reset_index()
-            csv_pivot = csv_pivot.rename(columns={'date': t["year"]})
-            
-            # Заголовок на выбранном языке
-            scale_suffix = f" ({selected_scale})" if selected_scale != "Исходный" else ""
-            csv_header = f'"{INDICATORS[selected_indicator]}{scale_suffix}"\n'
-            csv_header += f'{t["period"]}: {start_year} - {end_year}\n'
-            csv_header += f'{t["countries_label"]}: {", ".join([countries_dict[c] for c in selected_countries])}\n'
-            csv_header += f'{t["scale_label"]}: {selected_scale}\n'
-            csv_header += f'{t["date"]}: {datetime.now().strftime("%d.%m.%Y %H:%M")}\n'
-            csv_header += f'{t["source"]}\n'
-            csv_header += f'{t["file"]}\n\n'
-            
+                        # CSV экспорт (старая рабочая версия)
+            csv_pivot = pivot.reset_index()
+            csv_pivot = csv_pivot.rename(columns={'date': 'Год'})
             csv_data = csv_pivot.to_csv(index=False)
-            full_csv = csv_header + csv_data
-            csv_bytes = full_csv.encode('utf-8-sig')
-            
+            csv_bytes = csv_data.encode('utf-8-sig')
+                      st.write("=== ОТЛАДКА CSV ===")
+            st.write(f"Тип t: {type(t)}")
+            st.write(f"Ключи t: {list(t.keys())}")
+            st.write(f"lang из session_state: {st.session_state.get('lang', 'НЕТ')}")
             st.download_button(
-                t["load_csv"],
+                t["load_csv"],  # ← только это поменяли
                 csv_bytes,
                 f"{REPORT_NAME}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 "text/csv",
                 key="csv"
             )
+   
             if PDF_AVAILABLE:
                 pdf_data = export_to_pdf(df, pivot, INDICATORS[selected_indicator], selected_scale,
                             [countries_dict[c] for c in selected_countries], start_year, end_year, lang)
