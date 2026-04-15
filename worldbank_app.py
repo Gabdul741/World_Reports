@@ -438,7 +438,9 @@ def get_countries_list():
         }
     
     return dict(sorted(countries.items(), key=lambda x: x[1]))
-    #return dict(sorted(countries.items(), key=lambda x: x[1]))   # ← ТОЛЬКО ОДНА СТРОКА
+    countries_dict = get_countries_list()   # ← ЭТА СТРОКА
+
+#return dict(sorted(countries.items(), key=lambda x: x[1]))   # ← ТОЛЬКО ОДНА СТРОКА
 #    return dict(sorted(countries.items(), key=lambda x: x[1]))
 
 # ===== ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ =====
