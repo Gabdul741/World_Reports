@@ -420,7 +420,7 @@ def get_countries_list():
         # Резервный список на случай ошибки
         countries = {"RU": "Россия", "US": "США", "DE": "Германия"}
     
-    return dict(sorted(countries.items(), key=lambda x: x[1]))
+    #return dict(sorted(countries.items(), key=lambda x: x[1]))
     return dict(sorted(countries.items(), key=lambda x: x[1]))
 
 # ===== ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ =====
