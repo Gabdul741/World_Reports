@@ -729,29 +729,41 @@ if exit_button:
 
 # ===== ОСНОВНОЙ БЛОК =====
 if load_button and selected_countries:
-    # Берём язык из session_state
-    lang = st.session_state.get('lang', 'Русский')
+    # Получаем язык
+    if 'lang' in st.session_state:
+        lang = st.session_state.lang
+    else:
+        lang = "Русский"
+    
     if lang == "Русский":
         t = TEXTS["Русский"]
     else:
         t = TEXTS["English"]
-    with st.spinner("Загрузка..."):
+    
+    with st.spinner(t["loading"]):
         df = load_data_from_wb(selected_indicator, selected_countries, start_year, end_year, countries_dict)
+        
         if df.empty:
-            st.error("Нет данных")
+            st.error(t["no_data"])
         else:
             scale_factor = SCALES[selected_scale]
             df["value_scaled"] = df["value"] / scale_factor
+            
             pivot = df.pivot(index="date", columns="country", values="value_scaled").round(2)
+            pivot = pivot.sort_index()
             
             scale_suffix = f" ({selected_scale})" if selected_scale != "Исходный" else ""
             st.subheader(f"📋 {INDICATORS[selected_indicator]}{scale_suffix}")
-            st.dataframe(pivot)
+            st.dataframe(pivot, use_container_width=True)
             
+            # ГРАФИК (теперь t определена)
             fig = px.line(
                 df, x="date", y="value_scaled", color="country", markers=True,
                 labels={"date": t["year"], "value_scaled": f'{t["value"]} ({selected_scale})', "country": t["countries_label"]}
             )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # ... остальной код (CSV, PDF) ...
             
             # Экспорт CSV в том же стиле, что и PDF
             # Создаем сводную таблицу как в PDF
