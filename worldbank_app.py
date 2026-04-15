@@ -729,6 +729,12 @@ if exit_button:
 
 # ===== ОСНОВНОЙ БЛОК =====
 if load_button and selected_countries:
+    # Берём язык из session_state
+    lang = st.session_state.get('lang', 'Русский')
+    if lang == "Русский":
+        t = TEXTS["Русский"]
+    else:
+        t = TEXTS["English"]
     with st.spinner("Загрузка..."):
         df = load_data_from_wb(selected_indicator, selected_countries, start_year, end_year, countries_dict)
         if df.empty:
