@@ -398,33 +398,46 @@ SCALES_EN = {
  # ===== ФУНКЦИЯ ЗАГРУЗКИ ВСЕХ СТРАН =====
 @st.cache_data(ttl=86400)
 def get_countries_list():
-    """Загружает список всех стран из World Bank API"""
+    """Загружает список стран из World Bank API с защитой от зависания"""
+    import time
+    
     countries = {}
     url = "http://api.worldbank.org/v2/country?format=json&per_page=300"
     
     try:
-        response = requests.get(url, timeout=30)
-        data = response.json()
+        # Устанавливаем таймаут 10 секунд
+        response = requests.get(url, timeout=10)
         
-        if len(data) > 1:
-            for country in data[1]:
-                # Исключаем агрегатные группы
-                if country.get('region', {}).get('id') != 'Aggregates':
-                    code = country.get('iso2Code', '')
-                    name = country.get('name', '')
-                    if code and name and len(code) == 2:
-                        countries[code] = name
+        if response.status_code == 200:
+            data = response.json()
+            if len(data) > 1:
+                for country in data[1]:
+                    # Исключаем агрегатные группы
+                    if country.get('region', {}).get('id') != 'Aggregates':
+                        code = country.get('iso2Code', '')
+                        name = country.get('name', '')
+                        if code and name and len(code) == 2:
+                            countries[code] = name
+    except requests.exceptions.Timeout:
+        st.warning("⚠️ Таймаут загрузки списка стран. Использую резервный список.")
     except Exception as e:
-        st.error(f"Ошибка загрузки стран: {e}")
-        # Резервный список
+        st.warning(f"⚠️ Ошибка загрузки стран: {e}")
+    
+    # Резервный список (если API не ответил)
+    if not countries:
         countries = {
             "RU": "Россия", "US": "США", "DE": "Германия",
             "CN": "Китай", "IN": "Индия", "GB": "Великобритания",
             "FR": "Франция", "JP": "Япония", "BR": "Бразилия",
+            "IT": "Италия", "CA": "Канада", "AU": "Австралия",
+            "KR": "Южная Корея", "MX": "Мексика", "TR": "Турция",
+            "NL": "Нидерланды", "CH": "Швейцария", "SE": "Швеция",
+            "NO": "Норвегия", "DK": "Дания", "FI": "Финляндия",
+            "PL": "Польша", "CZ": "Чехия", "AT": "Австрия",
+            "BE": "Бельгия", "PT": "Португалия", "GR": "Греция",
         }
     
     return dict(sorted(countries.items(), key=lambda x: x[1]))
-    countries_dict = get_countries_list()
     #return dict(sorted(countries.items(), key=lambda x: x[1]))   # ← ТОЛЬКО ОДНА СТРОКА
 #    return dict(sorted(countries.items(), key=lambda x: x[1]))
 
