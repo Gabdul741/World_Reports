@@ -632,10 +632,10 @@ if load_button and selected_countries:
             # Используем value_scaled (уже с масштабом)
                         # CSV экспорт (старая рабочая версия)
             # ОТЛАДКА CSV
-            st.write("=== ОТЛАДКА CSV ===")
-            st.write(f"Тип t: {type(t)}")
-            st.write(f"Ключи t: {list(t.keys())}")
-            st.write(f"lang из session_state: {st.session_state.get('lang', 'НЕТ')}")
+            # st.write("=== ОТЛАДКА CSV ===")
+            #st.write(f"Тип t: {type(t)}")
+            #st.write(f"Ключи t: {list(t.keys())}")
+            #st.write(f"lang из session_state: {st.session_state.get('lang', 'НЕТ')}")
             
             # CSV экспорт
             csv_pivot = pivot.reset_index()
