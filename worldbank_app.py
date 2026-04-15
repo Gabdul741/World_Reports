@@ -418,7 +418,7 @@ def get_countries_list():
             "RU": "Россия", "US": "США", "DE": "Германия",
             "CN": "Китай", "IN": "Индия", "GB": "Великобритания",
         }
-    
+    countries_dict = get_countries_list()
     return dict(sorted(countries.items(), key=lambda x: x[1]))   # ← ТОЛЬКО ОДНА СТРОКА
 #    return dict(sorted(countries.items(), key=lambda x: x[1]))
 
