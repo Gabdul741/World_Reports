@@ -622,6 +622,13 @@ countries_dict = get_countries_list()
 with st.sidebar:
     # Переключатель языка
     language = st.radio("🌐 Language / Язык", ["Русский", "English"], key="lang")
+        # Выбор словарей в зависимости от языка
+    if language == "Русский":
+        INDICATORS = INDICATORS_RU
+        SCALES = SCALES_RU
+    else:
+        INDICATORS = INDICATORS_EN
+        SCALES = SCALES_EN
     st.divider()
     
     # Выбираем нужный словарь
