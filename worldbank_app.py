@@ -178,7 +178,6 @@ Application for analyzing World Bank data.
         """
     }
 }# ===== ПЕРЕВОДЫ =====
-}
 #INDICATORS 
   # ===== ПОКАЗАТЕЛИ (Русский/English) =====
 INDICATORS_RU = {
