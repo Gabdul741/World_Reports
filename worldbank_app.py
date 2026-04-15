@@ -550,7 +550,7 @@ def export_to_pdf(df, pivot, indicator_name, scale_name, countries, start_year, 
     # Количество строк на страницу
     rows_per_page = 28
     total_rows = len(table_df)
-    first_page_rows = 18
+    first_page_rows = 14
     
     # ===== ПЕРВАЯ СТРАНИЦА ТАБЛИЦЫ =====
     story.append(Paragraph(f"{indicator_name} ({scale_name})", table_title_style))
