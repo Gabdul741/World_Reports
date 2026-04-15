@@ -398,6 +398,7 @@ SCALES_EN = {
  # ===== ФУНКЦИЯ ЗАГРУЗКИ ВСЕХ СТРАН =====
 @st.cache_data(ttl=86400)
 def get_countries_list():
+    """Загружает список всех стран из World Bank API"""
     countries = {}
     url = "http://api.worldbank.org/v2/country?format=json&per_page=300"
     
@@ -407,6 +408,7 @@ def get_countries_list():
         
         if len(data) > 1:
             for country in data[1]:
+                # Исключаем агрегатные группы
                 if country.get('region', {}).get('id') != 'Aggregates':
                     code = country.get('iso2Code', '')
                     name = country.get('name', '')
@@ -414,12 +416,16 @@ def get_countries_list():
                         countries[code] = name
     except Exception as e:
         st.error(f"Ошибка загрузки стран: {e}")
+        # Резервный список
         countries = {
             "RU": "Россия", "US": "США", "DE": "Германия",
             "CN": "Китай", "IN": "Индия", "GB": "Великобритания",
+            "FR": "Франция", "JP": "Япония", "BR": "Бразилия",
         }
+    
+    return dict(sorted(countries.items(), key=lambda x: x[1]))
     countries_dict = get_countries_list()
-    return dict(sorted(countries.items(), key=lambda x: x[1]))   # ← ТОЛЬКО ОДНА СТРОКА
+    #return dict(sorted(countries.items(), key=lambda x: x[1]))   # ← ТОЛЬКО ОДНА СТРОКА
 #    return dict(sorted(countries.items(), key=lambda x: x[1]))
 
 # ===== ФУНКЦИЯ ЗАГРУЗКИ ДАННЫХ =====
