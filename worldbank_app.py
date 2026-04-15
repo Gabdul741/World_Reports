@@ -808,6 +808,6 @@ if load_button and selected_countries:
             )
             if PDF_AVAILABLE:
                 pdf_data = export_to_pdf(df, pivot, INDICATORS[selected_indicator], selected_scale,
-                            [countries_dict[c] for c in selected_countries], start_year, end_year, language)
+                            [countries_dict[c] for c in selected_countries], start_year, end_year, lang)
                 if pdf_data:
                     st.download_button("📄 PDF", pdf_data, f"report.pdf", "application/pdf", key="pdf")
