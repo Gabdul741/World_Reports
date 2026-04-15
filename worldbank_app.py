@@ -161,6 +161,7 @@ TEXTS = {
 - **Other indicators** — may not be available for all countries
 - If no data — dash "–" is displayed in the table
         """,
+ "load_csv": "📥 Скачать CSV"
         "about_text": """
 **🌍 World Bank Data Explorer**
 
