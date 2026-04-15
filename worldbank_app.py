@@ -770,6 +770,7 @@ if load_button and selected_countries:
 
             # Экспорт CSV в том же масштабе, что и PDF
             # Используем value_scaled (уже с масштабом)
+                   # CSV экспорт (с переводом и форматированием)
             csv_pivot = df.pivot(index="date", columns="country", values="value_scaled").round(2)
             csv_pivot = csv_pivot.sort_index()
             
@@ -780,24 +781,24 @@ if load_button and selected_countries:
                 )
             
             csv_pivot = csv_pivot.reset_index()
-            csv_pivot = csv_pivot.rename(columns={'date': 'Год'})
+            csv_pivot = csv_pivot.rename(columns={'date': t["year"]})
             
-            # Заголовок
+            # Заголовок на выбранном языке
             scale_suffix = f" ({selected_scale})" if selected_scale != "Исходный" else ""
             csv_header = f'"{INDICATORS[selected_indicator]}{scale_suffix}"\n'
-            csv_header += f'Период: {start_year} - {end_year}\n'
-            csv_header += f'Страны: {", ".join([countries_dict[c] for c in selected_countries])}\n'
-            csv_header += f'Масштаб: {selected_scale}\n'
-            csv_header += f'Дата: {datetime.now().strftime("%d.%m.%Y %H:%M")}\n'
-            csv_header += f'Источник: {DATA_SOURCE}\n'
-            csv_header += f'Файл: {REPORT_NAME}\n\n'
+            csv_header += f'{t["period"]}: {start_year} - {end_year}\n'
+            csv_header += f'{t["countries_label"]}: {", ".join([countries_dict[c] for c in selected_countries])}\n'
+            csv_header += f'{t["scale_label"]}: {selected_scale}\n'
+            csv_header += f'{t["date"]}: {datetime.now().strftime("%d.%m.%Y %H:%M")}\n'
+            csv_header += f'{t["source"]}\n'
+            csv_header += f'{t["file"]}\n\n'
             
             csv_data = csv_pivot.to_csv(index=False)
             full_csv = csv_header + csv_data
             csv_bytes = full_csv.encode('utf-8-sig')
             
             st.download_button(
-                "📥 Скачать CSV",
+                t["load_csv"],
                 csv_bytes,
                 f"{REPORT_NAME}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 "text/csv",
