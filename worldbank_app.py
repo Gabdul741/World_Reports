@@ -638,10 +638,21 @@ if load_button and selected_countries:
             #st.write(f"lang из session_state: {st.session_state.get('lang', 'НЕТ')}")
             
             # CSV экспорт
+                       # CSV экспорт (с заголовком)
             csv_pivot = pivot.reset_index()
-            csv_pivot = csv_pivot.rename(columns={'date': 'Год'})
-            csv_data = csv_pivot.to_csv(index=False)
-            csv_bytes = csv_data.encode('utf-8-sig')
+            csv_pivot = csv_pivot.rename(columns={'date': t["year"]})
+            
+            # Заголовок CSV (шапка)
+            csv_header_line = f"{t['year']},{','.join([str(c) for c in csv_pivot.columns[1:]])}\n"
+            
+            # Данные без индекса
+            csv_data_lines = ""
+            for _, row in csv_pivot.iterrows():
+                csv_data_lines += f"{row.iloc[0]}," + ",".join([str(x) for x in row.iloc[1:]]) + "\n"
+            
+            full_csv = csv_header_line + csv_data_lines
+            csv_bytes = full_csv.encode('utf-8-sig')
+            
             st.download_button(
                 t["load_csv"],
                 csv_bytes,
