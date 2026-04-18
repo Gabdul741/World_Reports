@@ -176,6 +176,9 @@ TEXTS = {
 - **GDP** and **Population** — available for most countries (200+)
 - **Other indicators** — may not be available for all countries
 - If no data — dash "–" is displayed in the table
+**📌 Note about years:**
+- If the last year (e.g., 2025) displays incorrectly or data is missing — reduce the year to the previous one (e.g., 2024)
+- Current year data is gradually added to the World Bank database and becomes complete by the middle of the following year
         """,
  "about_text": """
 **🌍 World Bank Data Explorer**
