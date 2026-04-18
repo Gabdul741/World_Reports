@@ -12,6 +12,19 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+# ===== ФУНКЦИЯ ПОЛУЧЕНИЯ ПОСЛЕДНЕГО ГОДА =====
+def get_latest_year():
+    """Получает последний год с данными из World Bank API"""
+    try:
+        url = "http://api.worldbank.org/v2/country/RU/indicator/NY.GDP.MKTP.CD?format=json"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        if len(data) > 1 and data[1]:
+            years = [int(item['date']) for item in data[1] if item['date'].isdigit()]
+            return max(years) if years else 2024
+    except:
+        pass
+    return 2024  # запасной вариант
 
 # ===== НАСТРОЙКИ PDF =====
 try:
@@ -559,11 +572,26 @@ with st.sidebar:
         key="scale"
     )
     
+     # Получаем последний доступный год
+    latest_year = get_latest_year()
+    
     col1, col2 = st.columns(2)
     with col1:
-        start_year = st.number_input(t["year_from"], 1960, 2023, 2000, key="start")
+        start_year = st.number_input(
+            t["year_from"] if 't' in dir() else "Год от",
+            min_value=1960,
+            max_value=latest_year,
+            value=2000,
+            key="start"
+        )
     with col2:
-        end_year = st.number_input(t["year_to"], 1960, 2023, 2023, key="end")
+        end_year = st.number_input(
+            t["year_to"] if 't' in dir() else "Год до",
+            min_value=1960,
+            max_value=latest_year,
+            value=latest_year,
+            key="end"
+        ) 
     
     st.divider()
     
