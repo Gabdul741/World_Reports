@@ -573,25 +573,14 @@ with st.sidebar:
     )
     
      # Получаем последний доступный год
+      # Получаем последний доступный год
     latest_year = get_latest_year()
     
     col1, col2 = st.columns(2)
     with col1:
-        start_year = st.number_input(
-            t["year_from"] if 't' in dir() else "Год от",
-            min_value=1960,
-            max_value=latest_year,
-            value=2000,
-            key="start"
-        )
+        start_year = st.number_input("Год от", 1960, latest_year, 2000, key="start")
     with col2:
-        end_year = st.number_input(
-            t["year_to"] if 't' in dir() else "Год до",
-            min_value=1960,
-            max_value=latest_year,
-            value=latest_year,
-            key="end"
-        ) 
+        end_year = st.number_input("Год до", 1960, latest_year, latest_year, key="end")
     
     st.divider()
     
