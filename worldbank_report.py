@@ -94,15 +94,15 @@ with st.expander(" About"):
     **Совместное производство:** Gabdul741 и Claude (Sonnet 4.6) — Anthropic
     **Ссылка:** world-reports-gabdul741.streamlit.app
     """)
-#indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица"])
-#indicator = st.selectbox("Выберите показатель:", ["ВВП", "Население", "Инфляция", "Безработица", "Продолжительность жизни"])
-indicator = st.selectbox("Выберите показатель:", [
+#indicator = st.selectbox(t["indicator"], ["ВВП", "Население", "Инфляция", "Безработица"])
+#indicator = st.selectbox(t["indicator"], ["ВВП", "Население", "Инфляция", "Безработица", "Продолжительность жизни"])
+indicator = st.selectbox(t["indicator"], [
     "ВВП", "Население", "Инфляция", "Безработица", 
     "Продолжительность жизни", "ВВП на душу населения",
     "CO2 выбросы", "Военные расходы", "Расходы на образование",
     "Грамотность населения"
 ])
-scale = st.selectbox("Масштаб значений:", [ "Исходные", "Тысячи", "Миллионы", "Миллиарды"])
+scale = st.selectbox(t["scale"], t["scale_options"])
 
 if indicator == "ВВП":
     df = pd.read_csv(os.path.join(base_dir, "gdp.csv"))
@@ -170,7 +170,7 @@ else:
     units = "%"
 
 countries = df["Country Name"].unique().tolist()
-#selected = st.multiselect("Выберите страны:", countries,
+#selected = st.multiselect(t["countries"], countries,
 #    default=["Russian Federation", "United States", "China", "Germany"])
 #if indicator == "Продолжительность жизни":
 #    default_countries = ["Russia", "United States", "China", "Germany"]
@@ -192,7 +192,7 @@ else:
 
 default_countries = [c for c in default_countries if c in countries]
 
-selected = st.multiselect("Выберите страны:", countries,
+selected = st.multiselect(t["countries"], countries,
     default=default_countries)
 
 max_year = int(df["Year"].max())
@@ -221,7 +221,7 @@ else:
 ylabel_full = ylabel + scale_label
 
 if len(filtered) > 0:
-    st.subheader("📋 Данные:")
+    st.subheader(t["data"])
     pivot_screen = filtered.pivot(index="Year",
                                    columns="Country Name",
                                    values="Value")
@@ -242,7 +242,7 @@ if len(filtered) > 0:
     plt.xticks(rotation=45)
     plt.tight_layout()
 
-    st.subheader("📊 График:")
+    st.subheader(t["chart"])
     st.pyplot(fig)
 
     if st.button("📄 Создать PDF отчёт"):
@@ -320,7 +320,7 @@ if len(filtered) > 0:
 )
 
 st.markdown("---")
-st.subheader("📚 Источники данных:")
+st.subheader(t["sources"])
 sources = {
     "ВВП": ("gdp.csv", "World Bank — ВВП в долл. США", "github.com/datasets/gdp"),
     "Население": ("population.csv", "World Bank — Население стран", "github.com/datasets/population"),
@@ -336,7 +336,7 @@ sources = {
 for indicator_name, (filename, description, source) in sources.items():
     st.markdown(f"- **{indicator_name}:** {description} | Файл: `{filename}` | Источник: {source}")
 st.markdown("---")
-if st.button("🚪 Выход"):
+if st.button(t["exit_btn"]):
     st.success("Спасибо за использование приложения! Закройте вкладку браузера.")
     st.stop()
 
