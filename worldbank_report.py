@@ -148,8 +148,11 @@ default_countries = [c for c in default_countries if c in countries]
 
 selected = st.multiselect("Выберите страны:", countries,
     default=default_countries)
-year_from = st.slider("С года:", 1960, 2023, 2000)
-year_to = st.slider("По год:", 1960, 2023, 2023)
+
+max_year = int(df["Year"].max())
+min_year = int(df["Year"].min())
+year_from = st.slider("С года:", min_year, max_year, 2000)
+year_to = st.slider("По год:", min_year, max_year, max_year)
 
 filtered = df[
     (df["Country Name"].isin(selected)) &
