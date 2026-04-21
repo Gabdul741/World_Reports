@@ -23,8 +23,53 @@ pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 #pdfmetrics.registerFont(TTFont("DejaVu-Bold",
 #    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
 
-st.title("🌍 Отчёты по мировым данным")
+
 lang = st.sidebar.selectbox("🌐 Language / Язык:", ["Русский", "English"])
+if lang == "English":
+    t = {
+        "title": "🌍 World Data Reports",
+        "indicator": "Select indicator:",
+        "scale": "Scale:",
+        "countries": "Select countries:",
+        "year_from": "From year:",
+        "year_to": "To year:",
+        "data": "📋 Data:",
+        "stats": "📈 Statistics:",
+        "chart": "📊 Chart:",
+        "pdf_btn": "📄 Create PDF Report",
+        "download": "📥 Download PDF",
+        "sources": "📚 Data Sources:",
+        "exit_btn": "🚪 Exit",
+        "exit_msg": "Thank you! Please close the browser tab.",
+        "scale_options": ["Original", "Thousands", "Millions", "Billions"],
+        "indicators": ["GDP", "Population", "Inflation", "Unemployment",
+            "Life Expectancy", "GDP per capita", "CO2 emissions",
+            "Military expenditure", "Education expenditure", "Literacy rate"],
+    }
+else:
+    t = {
+        "title": "🌍 Отчёты по мировым данным",
+        "indicator": "Выберите показатель:",
+        "scale": "Масштаб значений:",
+        "countries": "Выберите страны:",
+        "year_from": "С года:",
+        "year_to": "По год:",
+        "data": "📋 Данные:",
+        "stats": "📈 Статистика:",
+        "chart": "📊 График:",
+        "pdf_btn": "📄 Создать PDF отчёт",
+        "download": "📥 Скачать PDF",
+        "sources": "📚 Источники данных:",
+        "exit_btn": "🚪 Выход",
+        "exit_msg": "Спасибо! Закройте вкладку браузера.",
+        "scale_options": ["Исходные", "Тысячи", "Миллионы", "Миллиарды"],
+        "indicators": ["ВВП", "Население", "Инфляция", "Безработица",
+            "Продолжительность жизни", "ВВП на душу населения",
+            "CO2 выбросы", "Военные расходы", "Расходы на образование",
+            "Грамотность населения"],
+    }
+
+st.title(t["title"])
 with st.expander("❓ Help — Инструкция"):
     st.markdown("""
     **Как пользоваться приложением:**
