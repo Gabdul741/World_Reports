@@ -24,6 +24,7 @@ pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 #    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
 
 st.title("🌍 Отчёты по мировым данным")
+lang = st.sidebar.selectbox("🌐 Language / Язык:", ["Русский", "English"])
 with st.expander("❓ Help — Инструкция"):
     st.markdown("""
     **Как пользоваться приложением:**
