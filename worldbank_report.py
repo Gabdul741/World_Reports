@@ -276,7 +276,7 @@ if len(filtered) > 0:
     st.subheader(t["chart"])
     st.pyplot(fig)
 
-    if st.button("📄 Создать PDF отчёт"):
+    if st.button(t["pdf_btn"]):
         buffer = io.BytesIO()
         page_title = f"{title} — {ylabel_full}"
 
@@ -344,7 +344,7 @@ if len(filtered) > 0:
         buffer.seek(0)
 
         st.download_button(
-            label="📥 Скачать PDF",
+            label=t["download"],
             data=buffer,
             file_name=f"{indicator}_report.pdf",
             mime="application/pdf"
