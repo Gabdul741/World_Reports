@@ -70,38 +70,69 @@ else:
     }
 
 st.title(t["title"])
-with st.expander("❓ Help — Инструкция"):
-    st.markdown("""
-    **Как пользоваться приложением:**
-    
-    1. **Выберите показатель** — ВВП, Население, Инфляция и другие
-    2. **Выберите масштаб** — Исходные, Тысячи, Миллионы, Миллиарды
-    3. **Выберите страны** — можно выбрать несколько стран
-    4. **Задайте период** — выберите начальный и конечный год
-    5. **Просмотрите данные** — таблица и график обновятся автоматически
-    6. **Создайте PDF** — нажмите кнопку для скачивания отчёта
-    """)
+if lang == "English":
+    with st.expander("❓ Help"):
+        st.markdown("""
+        **How to use the app:**
+        
+        1. **Select indicator** — GDP, Population, Inflation and others
+        2. **Select scale** — Original, Thousands, Millions, Billions
+        3. **Select countries** — multiple countries can be selected
+        4. **Set period** — select start and end year
+        5. **View data** — table and chart update automatically
+        6. **Create PDF** — click button to download report
+        """)
+else:
+    with st.expander("❓ Help — Инструкция"):
+        st.markdown("""
+        **Как пользоваться приложением:**
+        
+        1. **Выберите показатель** — ВВП, Население, Инфляция и другие
+        2. **Выберите масштаб** — Исходные, Тысячи, Миллионы, Миллиарды
+        3. **Выберите страны** — можно выбрать несколько стран
+        4. **Задайте период** — выберите начальный и конечный год
+        5. **Просмотрите данные** — таблица и график обновятся автоматически
+        6. **Создайте PDF** — нажмите кнопку для скачивания отчёта
 
-with st.expander(" About"):
-    st.markdown("""
-    **🌍 Отчёты по мировым данным**
-    
-    Приложение для анализа и визуализации мировых экономических показателей.
-    
-    **Версия:** 1.0  
-    **Данные:** World Bank, WHO, UNESCO, SIPRI, Our World in Data  
-    **Технологии:** Python, Streamlit, Pandas, Matplotlib, ReportLab  
-    **Совместное производство:** Gabdul741 и Claude (Sonnet 4.6) — Anthropic
-    **Ссылка:** world-reports-gabdul741.streamlit.app
-    """)
+        """)
+#with st.expander(" About"):
+if lang == "English":
+    with st.expander("ℹ️ About"):
+        st.markdown("""
+        **🌍 World Data Reports**
+        
+        Application for analysis and visualization of world economic indicators.
+        
+        **Version:** 1.0  
+        **Data:** World Bank, WHO, UNESCO, SIPRI, Our World in Data  
+        **Technologies:** Python, Streamlit, Pandas, Matplotlib, ReportLab  
+        **Co-created by:** Gabdul741 and Claude (Sonnet 4.6) — Anthropic  
+        **Link:** world-reports-gabdul741.streamlit.app
+        """)
+else:
+    with st.expander("ℹ️ About"):
+        st.markdown("""
+        **🌍 Отчёты по мировым данным**
+        
+        Приложение для анализа и визуализации мировых экономических показателей.
+        
+        **Версия:** 1.0  
+        **Данные:** World Bank, WHO, UNESCO, SIPRI, Our World in Data  
+        **Технологии:** Python, Streamlit, Pandas, Matplotlib, ReportLab  
+        **Совместное производство:** Gabdul741 и Claude (Sonnet 4.6) — Anthropic  
+        **Ссылка:** world-reports-gabdul741.streamlit.app
+        """)
+
 #indicator = st.selectbox(t["indicator"], ["ВВП", "Население", "Инфляция", "Безработица"])
 #indicator = st.selectbox(t["indicator"], ["ВВП", "Население", "Инфляция", "Безработица", "Продолжительность жизни"])
-indicator = st.selectbox(t["indicator"], [
-    "ВВП", "Население", "Инфляция", "Безработица", 
-    "Продолжительность жизни", "ВВП на душу населения",
-    "CO2 выбросы", "Военные расходы", "Расходы на образование",
-    "Грамотность населения"
-])
+#indicator = st.selectbox(t["indicator"], [
+
+#    "ВВП", "Население", "Инфляция", "Безработица", 
+#    "Продолжительность жизни", "ВВП на душу населения",
+#   "CO2 выбросы", "Военные расходы", "Расходы на образование",
+#    "Грамотность населения"
+#])
+indicator = st.selectbox(t["indicator"], t["indicators"])
 scale = st.selectbox(t["scale"], t["scale_options"])
 
 if indicator == "ВВП":
