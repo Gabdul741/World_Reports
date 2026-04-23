@@ -237,13 +237,13 @@ filtered = df[
     (df["Year"] <= year_to)
 ].copy()
 
-if scale == "Тысячи":
+if scale in ["Тысячи", "Thousands"]:
     filtered["Value"] = filtered["Value"] / 1_000
     scale_label = f" (thousands {units})" if lang == "English" else f" (тыс. {units})"
-elif scale == "Миллионы":
+elif scale in ["Миллионы", "Millions"]:
     filtered["Value"] = filtered["Value"] / 1_000_000
     scale_label = f" (millions {units})" if lang == "English" else f" (млн. {units})"
-elif scale == "Миллиарды":
+elif scale in ["Миллиарды", "Billions"]:
     filtered["Value"] = filtered["Value"] / 1_000_000_000
     scale_label = f" (billions {units})" if lang == "English" else f" (млрд. {units})"
 else:
