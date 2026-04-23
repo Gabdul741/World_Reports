@@ -137,67 +137,67 @@ scale = st.selectbox(t["scale"], t["scale_options"])
 
 if indicator == t["indicators"][0]:
     df = pd.read_csv(os.path.join(base_dir, "gdp.csv"))
-    ylabel = "ВВП"
-    title = "ВВП по странам"
-    units = "долл. США"
+    ylabel = "GDP" if lang == "English" else "ВВП"
+    title = "GDP by Country" if lang == "English" else "ВВП по странам"
+    units = "USD" if lang == "English" else "долл. США"
 elif indicator == t["indicators"][1]:
     df = pd.read_csv(os.path.join(base_dir, "population.csv"))
-    ylabel = "Население"
-    title = "Население по странам"
-    units = "чел."
+    ylabel = "Population" if lang == "English" else "Население"
+    title = "Population by Country" if lang == "English" else "Население по странам"
+    units = "people" if lang == "English" else "чел."
 elif indicator == t["indicators"][2]:
     df = pd.read_csv(os.path.join(base_dir, "inflation.csv"))
     df = df.rename(columns={"Country": "Country Name", "Inflation": "Value"})
-    ylabel = "Инфляция"
-    title = "Инфляция по странам"
+    ylabel = "Inflation" if lang == "English" else "Инфляция"
+    title = "Inflation by Country" if lang == "English" else "Инфляция по странам"
     units = "%"
 elif indicator == t["indicators"][3]:
     df = pd.read_csv(os.path.join(base_dir, "unemployment.csv"))
     df = df.rename(columns={"Unemployment Rate": "Value"})
-    ylabel = "Безработица"
-    title = "Безработица по странам"
+    ylabel = "Unemployment" if lang == "English" else "Безработица"
+    title = "Unemployment by Country" if lang == "English" else "Безработица по странам"
     units = "%"
 #else:
 #    df = pd.read_csv(os.path.join(base_dir, "life_expectancy.csv"))
 #    df = df.rename(columns={"Country": "Country Name", "Life expectancy": "Value"})
-#    ylabel = "Продолжительность жизни"
-#    title = "Продолжительность жизни по странам"
-#    units = "лет"
+#    ylabel = "Life Expectancy" if lang == "English" else "Продолжительность жизни"
+#    title = "Life Expectancy by Country" if lang == "English" else "Продолжительность жизни по странам"
+#    units = "years" if lang == "English" else "лет"
 elif indicator == t["indicators"][4]:
     df = pd.read_csv(os.path.join(base_dir, "life_expectancy.csv"))
     df = df.rename(columns={"Country": "Country Name", "Life expectancy": "Value"})
-    ylabel = "Продолжительность жизни"
-    title = "Продолжительность жизни по странам"
-    units = "лет"
+    ylabel = "Life Expectancy" if lang == "English" else "Продолжительность жизни"
+    title = "Life Expectancy by Country" if lang == "English" else "Продолжительность жизни по странам"
+    units = "years" if lang == "English" else "лет"
 elif indicator == t["indicators"][5]:
     df = pd.read_csv(os.path.join(base_dir, "gdp_per_capita.csv"))
     df = df.rename(columns={"Entity": "Country Name", "GDP per capita": "Value"})
-    ylabel = "ВВП на душу населения"
-    title = "ВВП на душу населения"
-    units = "долл. США"
+    ylabel = "GDP per capita" if lang == "English" else "ВВП на душу населения"
+    title = "GDP per capita by Country" if lang == "English" else "ВВП на душу населения"
+    units = "USD" if lang == "English" else "долл. США"
 elif indicator == t["indicators"][6]:
     df = pd.read_csv(os.path.join(base_dir, "co2.csv"))
     df = df.rename(columns={"Entity": "Country Name", "CO₂ emissions per capita": "Value"})
-    ylabel = "CO2 выбросы"
-    title = "CO2 выбросы на душу населения"
+    ylabel = "CO2 emissions" if lang == "English" else "CO2 выбросы"
+    title = "CO2 emissions per capita" if lang == "English" else "CO2 выбросы на душу населения"
     units = "т"
 elif indicator == t["indicators"][7]:
     df = pd.read_csv(os.path.join(base_dir, "military.csv"))
     df = df.rename(columns={"Entity": "Country Name", "Military expenditure (% of GDP)": "Value"})
-    ylabel = "Военные расходы"
-    title = "Военные расходы (% от ВВП)"
+    ylabel = "Military expenditure" if lang == "English" else "Военные расходы"
+    title = "Military expenditure (% of GDP)" if lang == "English" else "Военные расходы (% от ВВП)"
     units = "%"
 elif indicator == t["indicators"][8]:
     df = pd.read_csv(os.path.join(base_dir, "education.csv"))
     df = df.rename(columns={"Entity": "Country Name", "Total across all levels of education": "Value"})
-    ylabel = "Расходы на образование"
-    title = "Расходы на образование (% от ВВП)"
+    ylabel = "Education expenditure" if lang == "English" else "Расходы на образование"
+    title = "Education expenditure (% of GDP)" if lang == "English" else "Расходы на образование (% от ВВП)"
     units = "%"
 else:
     df = pd.read_csv(os.path.join(base_dir, "literacy.csv"))
     df = df.rename(columns={"Entity": "Country Name", "Literacy rate among adults": "Value"})
-    ylabel = "Грамотность населения"
-    title = "Грамотность населения"
+    ylabel = "Literacy rate" if lang == "English" else "Грамотность населения"
+    title = "Literacy rate by Country" if lang == "English" else "Грамотность населения"
     units = "%"
 
 countries = df["Country Name"].unique().tolist()
