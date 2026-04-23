@@ -239,13 +239,13 @@ filtered = df[
 
 if scale == "Тысячи":
     filtered["Value"] = filtered["Value"] / 1_000
-    scale_label = f" (тыс. {units})"
+    scale_label = f" (thousands {units})" if lang == "English" else f" (тыс. {units})"
 elif scale == "Миллионы":
     filtered["Value"] = filtered["Value"] / 1_000_000
-    scale_label = f" (млн. {units})"
+    scale_label = f" (millions {units})" if lang == "English" else f" (млн. {units})"
 elif scale == "Миллиарды":
     filtered["Value"] = filtered["Value"] / 1_000_000_000
-    scale_label = f" (млрд. {units})"
+    scale_label = f" (billions {units})" if lang == "English" else f" (млрд. {units})"
 else:
     scale_label = f" ({units})"
 
