@@ -126,10 +126,12 @@ for ticker in selected:
 
 # --- Сводная таблица с цветом ---
 st.subheader("📋 Сигналы по активам")
-df_results = pd.DataFrame(results)
-styled_df = df_results.style.applymap(signal_to_color, subset=["Сигнал"])
-st.dataframe(styled_df, use_container_width=True)
-
+if results:
+    df_results = pd.DataFrame(results)
+    styled_df = df_results.style.applymap(signal_to_color, subset=["Сигнал"])
+    st.dataframe(styled_df, use_container_width=True)
+else:
+    st.warning("Нет данных для отображения. Проверьте выбранные активы.")
 # --- Итоговая рекомендация ---
 st.subheader("🧠 Итоговая рекомендация")
 buys = [r["Актив"] for r in results if r["Сигнал"] == "Купить"]
