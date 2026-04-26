@@ -137,94 +137,74 @@ if sells:
 if not buys and not sells:
     st.info("🟡 Ничего не делайте, наблюдайте")
 # ========== БЭКТЕСТ (обкатка) ==========
+# ========== УПРОЩЁННЫЙ БЭКТЕСТ (без ежедневного переобучения) ==========
 st.sidebar.markdown("---")
-if st.sidebar.button("🔁 Прогнать бэктест (обкатку)"):
+if st.sidebar.button("🔁 Быстрый бэктест (обкатка)"):
     st.subheader("📊 Бэктест стратегии на истории")
-    st.markdown("Проверяем, как бы работала стратегия 🟢 / 🟡 / 🔴 в прошлом")
-    
-    BACKTEST_YEARS = 2  # глубина бэктеста (лет)
-    end = datetime.now()
-    start = end - timedelta(days=365 * BACKTEST_YEARS)
+    st.info("Модель обучается один раз на последних 3 годах, затем проверяется на следующих 6 месяцах")
     
     results_backtest = []
+    TEST_MONTHS = 6
     
     for ticker in selected:
-        st.markdown(f"### {TICKERS[ticker]} ({ticker})")
-        
-        # Скачиваем данные за период бэктеста
-        df_full = yf.download(ticker, start=start, end=end, progress=False)
-        if df_full.empty or len(df_full) < 250:
-            st.warning(f"Недостаточно данных для {TICKERS[ticker]}")
-            continue
-        
-        # Простая стратегия: обучаем модель на растущем окне
-        prices = df_full["Close"].values
-        dates = df_full.index
-        trades = []
-        capital = 1.0      # начальный капитал (1 = 100%)
-        position = 0       # 0 = нет позиции, 1 = в позиции
-        entry_price = 0
-        
-        # Прогоняем по дням, каждый день обучаем модель на истории до этого дня
-        min_train = 200    # минимум дней для обучения
-        for i in range(min_train, len(prices) - 1):
-            train_df = pd.DataFrame({
-                "ds": dates[:i],
-                "y": prices[:i]
-            })
-            try:
-                model = Prophet(daily_seasonality=True)
-                model.fit(train_df)
-                future = model.make_future_dataframe(periods=1, include_history=False)
-                forecast = model.predict(future)
-                pred = forecast["yhat"].iloc[0]
-                low = forecast["yhat_lower"].iloc[0]
-                high = forecast["yhat_upper"].iloc[0]
-                
-                cur_price = prices[i]
-                
-                # Сигнал на основе текущей цены и прогноза
-                if cur_price < low and position == 0:
-                    # покупаем
-                    position = 1
-                    entry_price = cur_price
-                    trades.append(("BUY", dates[i], cur_price))
-                elif cur_price > high and position == 1:
-                    # продаём
-                    position = 0
-                    exit_price = cur_price
-                    capital *= (exit_price / entry_price)
-                    trades.append(("SELL", dates[i], exit_price))
-            except:
+        with st.spinner(f"Обрабатываю {TICKERS[ticker]}..."):
+            # Скачиваем длинную историю (4 года)
+            end = datetime.now()
+            start = end - timedelta(days=365*4)
+            df_full = yf.download(ticker, start=start, end=end, progress=False)
+            if df_full.empty or len(df_full) < 500:
+                st.warning(f"Недостаточно данных для {TICKERS[ticker]}")
                 continue
-        
-        # Закрываем последнюю позицию, если осталась
-        if position == 1:
-            last_price = prices[-1]
-            capital *= (last_price / entry_price)
-            trades.append(("SELL", dates[-1], last_price, "force_close"))
-        
-        # Доходность простого удержания (купили в начале, продали в конце)
-        hold_return = (prices[-1] / prices[min_train]) - 1
-        
-        st.metric("Доходность стратегии", f"{(capital - 1) * 100:.2f}%")
-        st.metric("Доходность удержания", f"{hold_return * 100:.2f}%")
-        st.metric("Количество сделок", len(trades) // 2)
-        
-        if capital > 1 + hold_return:
-            st.success("✅ Стратегия превзошла удержание")
-        else:
-            st.warning("⚠️ Стратегия не лучше удержания")
-        
-        results_backtest.append({
-            "Актив": TICKERS[ticker],
-            "Доходность стратегии": f"{(capital - 1) * 100:.2f}%",
-            "Доходность удержания": f"{hold_return * 100:.2f}%",
-            "Сделок": len(trades) // 2,
-            "Результат": "✅ лучше" if capital > 1 + hold_return else "⚠️ не лучше"
-        })
+            
+            # Разделяем на обучение и тест (первые 3 года обучение, последние 6 месяцев тест)
+            split_date = datetime.now() - timedelta(days=30*TEST_MONTHS)
+            train = df_full[df_full.index < split_date]
+            test = df_full[df_full.index >= split_date]
+            
+            if len(train) < 100 or len(test) < 50:
+                st.warning(f"Недостаточно тестовых данных для {TICKERS[ticker]}")
+                continue
+            
+            # Обучаем модель на тренировочных данных
+            train_df = train.reset_index()[["Date", "Close"]]
+            train_df.columns = ["ds", "y"]
+            model = Prophet(daily_seasonality=True)
+            model.fit(train_df)
+            
+            # Делаем прогноз на тестовый период
+            test_df = test.reset_index()[["Date"]]
+            test_df.columns = ["ds"]
+            forecast = model.predict(test_df)
+            
+            # Считаем, сколько раз сигнал совпал с движением вверх/вниз
+            # (упрощённо: сравнение прогноза с реальностью)
+            actual = test["Close"].values
+            predicted = forecast["yhat"].values
+            correct_up = 0
+            correct_down = 0
+            total = len(actual) - 1
+            
+            for i in range(total):
+                if predicted[i] > actual[i] and actual[i+1] > actual[i]:
+                    correct_up += 1
+                elif predicted[i] < actual[i] and actual[i+1] < actual[i]:
+                    correct_down += 1
+            
+            accuracy = (correct_up + correct_down) / total * 100 if total > 0 else 0
+            
+            st.metric(f"{TICKERS[ticker]} — точность направления прогноза", f"{accuracy:.1f}%")
+            if accuracy > 55:
+                st.success("✅ Прогноз лучше случайного")
+            else:
+                st.warning("⚠️ Прогноз слабее случайного")
+            
+            results_backtest.append({
+                "Актив": TICKERS[ticker],
+                "Точность направления": f"{accuracy:.1f}%",
+                "Тестовых дней": total,
+                "Оценка": "✅ лучше случайного" if accuracy > 55 else "⚠️ хуже случайного"
+            })
     
     if results_backtest:
-        st.subheader("📋 Сводка по портфелю")
-        df_backtest = pd.DataFrame(results_backtest)
-        st.dataframe(df_backtest, use_container_width=True)
+        st.subheader("📋 Сводка по активам")
+        st.dataframe(pd.DataFrame(results_backtest), use_container_width=True)
