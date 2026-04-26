@@ -9,7 +9,7 @@ st.set_page_config(layout="wide")
 st.title("📊 Портфельный контролёр с ИИ (Prophet)")
 st.markdown("Прогноз на 7 дней, цветные сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
 
-# --- Выбор активов ---
+# --- АКТИВЫ (новые: WTI и серебро) ---
 TICKERS = {
     "CL=F": "Нефть WTI",
     "SI=F": "Серебро",
@@ -22,13 +22,13 @@ selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default=["BZ=F", "GC=F", "^GSPC"]
+    default=["CL=F", "SI=F", "^GSPC"]
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
 FORECAST_DAYS = 7
+show_interval = st.checkbox("📈 Показать доверительный интервал на графике", value=False)
 
-# --- Загрузка данных ---
 @st.cache_data(ttl=3600)
 def load_data(ticker, years):
     end = datetime.now()
@@ -51,21 +51,12 @@ def get_signal(current_price, forecast_row):
     low = forecast_row["yhat_lower"]
     high = forecast_row["yhat_upper"]
     if current_price < low:
-        return "Купить"
+        return "🟢 Купить"
     elif current_price > high:
-        return "Продавать"
+        return "🔴 Продавать"
     else:
-        return "Держать"
+        return "🟡 Держать"
 
-def signal_to_color(signal):
-    if signal == "Купить":
-        return "background-color: #90EE90"
-    elif signal == "Продавать":
-        return "background-color: #FFCCCC"
-    else:
-        return "background-color: #FFFACD"
-
-# --- Основной цикл ---
 results = []
 
 for ticker in selected:
@@ -75,24 +66,18 @@ for ticker in selected:
             st.warning(f"❌ Недостаточно данных для {TICKERS[ticker]}")
             continue
         
-        # Модель и прогноз
         forecast = make_forecast(df, FORECAST_DAYS)
         current_price = df["y"].iloc[-1]
         signal = get_signal(current_price, forecast.iloc[0])
         
-        # МЕТРИКИ: точность прогноза на исторических данных (блок expander)
-        # (не влияет на основной расчёт, добавляет контекст)
         with st.expander(f"📊 Точность прогноза для {TICKERS[ticker]}"):
-            # Ограничим расчёт последними 100 днями для скорости
             test_len = min(100, len(df))
-            test_df = df.iloc[-test_len:].copy()
-            # Переобучаем модель на данных до последних test_len дней
             train_df = df.iloc[:-test_len].copy()
             if len(train_df) > 30:
                 test_model = Prophet(daily_seasonality=True)
                 test_model.fit(train_df)
-                test_forecast = test_model.predict(test_df[["ds"]])
-                actual = test_df["y"].values
+                test_forecast = test_model.predict(df.iloc[-test_len:][["ds"]])
+                actual = df.iloc[-test_len:]["y"].values
                 predicted = test_forecast["yhat"].values
                 mae = abs(actual - predicted).mean()
                 coverage = ((actual >= test_forecast["yhat_lower"].values) & 
@@ -117,26 +102,33 @@ for ticker in selected:
             "Сигнал": signal,
         })
         
-        # График
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df["ds"], y=df["y"], mode="lines", name="История"))
         fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat"], mode="lines+markers", name="Прогноз"))
+        if show_interval:
+            fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat_upper"], mode="lines", line=dict(dash="dash"), name="Верхняя граница"))
+            fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat_lower"], mode="lines", line=dict(dash="dash"), name="Нижняя граница"))
+            fig.add_trace(go.Scatter(
+                x=pd.concat([forecast["ds"], forecast["ds"][::-1]]),
+                y=pd.concat([forecast["yhat_upper"], forecast["yhat_lower"][::-1]]),
+                fill='toself', fillcolor='rgba(255,255,0,0.2)', line=dict(color='rgba(255,255,0,0)'),
+                name="Доверительный интервал", showlegend=True
+            ))
         fig.update_layout(title=f"{TICKERS[ticker]} — прогноз на {FORECAST_DAYS} дней")
         st.plotly_chart(fig, use_container_width=True)
 
-# --- Сводная таблица с цветом ---
+# --- Сводная таблица ---
 st.subheader("📋 Сигналы по активам")
 if results:
     df_results = pd.DataFrame(results)
-    # Просто показываем таблицу без applymap (цвет будет в итоговой рекомендации)
     st.dataframe(df_results, use_container_width=True)
 else:
     st.warning("Нет данных для отображения. Проверьте выбранные активы.")
 
 # --- Итоговая рекомендация ---
 st.subheader("🧠 Итоговая рекомендация")
-buys = [r["Актив"] for r in results if r["Сигнал"] == "Купить"]
-sells = [r["Актив"] for r in results if r["Сигнал"] == "Продавать"]
+buys = [r["Актив"] for r in results if "Купить" in r["Сигнал"]]
+sells = [r["Актив"] for r in results if "Продавать" in r["Сигнал"]]
 
 if buys:
     st.success(f"🟢 Рассмотрите покупку: {', '.join(buys)}")
