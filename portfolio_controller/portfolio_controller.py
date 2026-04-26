@@ -11,8 +11,8 @@ st.markdown("Прогноз на 7 дней, цветные сигналы: 🟢
 
 # --- Выбор активов ---
 TICKERS = {
-    "BZ=F": "Нефть Brent",
-    "GC=F": "Золото",
+    "CL=F": "Нефть WTI",
+    "SI=F": "Серебро",
     "^GSPC": "S&P 500",
     "AAPL": "Apple",
     "XOM": "Exxon Mobil"
