@@ -325,5 +325,5 @@ try:
 except Exception as e:
     st.write(f"**SARIMAX:** ошибка — {str(e)[:100]}")  
         
-        st.markdown("---")
+    st.markdown("---")
         
