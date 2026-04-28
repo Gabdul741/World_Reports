@@ -209,90 +209,83 @@ if st.sidebar.button("🔁 Быстрый бэктест (обкатка)"):
         st.subheader("📋 Сводка по активам")
         st.dataframe(pd.DataFrame(results_backtest), use_container_width=True)
 # ========== МОДУЛЬ АНСАМБЛЯ (XGBoost/LSTM/SARIMAX) ==========
+# ========== МОДУЛЬ АНСАМБЛЯ (XGBoost / SARIMAX) ==========
 st.sidebar.markdown("---")
-ensemble_on = st.sidebar.checkbox("🔮 Ансамбль (XGBoost + LSTM + SARIMAX)", value=False)
+ensemble_on = st.sidebar.checkbox("🔮 Ансамбль (XGBoost + SARIMAX)", value=False)
 
 if ensemble_on and selected:
-    st.subheader("🤖 Мнения моделей (XGBoost / LSTM / SARIMAX)")
+    st.subheader("🤖 Мнения моделей (XGBoost / SARIMAX)")
     
     # --- Загрузка внешних данных для SARIMAX (экзогенные переменные) ---
     @st.cache_data(ttl=3600)
     def get_exogenous_data():
-        # Индекс доллара DXY
-        dxy = yf.download("DX-Y.NYB", period="2y", progress=False)['Close']
-        # Запасы нефти в США (Cushing, OK Crude Oil Futures Contract)
-        # yfinance тикер: "CL=F" — контракт, запасы отдельно сложно, используем тикер WCBRENT для proxy
-        # Для простоты пока берём второй тикер — ETF нефти USO
-        uso = yf.download("USO", period="2y", progress=False)['Close']
-        # Объединяем в один DataFrame
-        exog = pd.DataFrame({'DXY': dxy, 'USO': uso}).dropna()
-        return exog
+        try:
+            dxy = yf.download("DX-Y.NYB", period="2y", progress=False)['Close']
+            uso = yf.download("USO", period="2y", progress=False)['Close']
+            exog = pd.DataFrame({'DXY': dxy, 'USO': uso}).dropna()
+            return exog
+        except:
+            return None
     
-    try:
-        exog_data = get_exogenous_data()
-    except:
-        exog_data = None
-        st.info("⚠️ Внешние данные для SARIMAX не загружены, используется авторегрессионный SARIMAX")
+    exog_data = get_exogenous_data()
+    if exog_data is None:
+        st.info("⚠️ Внешние данные для SARIMAX не загружены, используется только авторегрессия")
     
     for ticker in selected:
         st.markdown(f"### {TICKERS[ticker]} ({ticker})")
         
-        # Скачиваем историю
+        # Скачиваем историю (2 года вместо 3)
         end = datetime.now()
-        start = end - timedelta(days=365*3)  # глубокая история для LSTM / SARIMAX
+        start = end - timedelta(days=365*2)
         df = yf.download(ticker, start=start, end=end, progress=False)
-        if df.empty or len(df) < 100:
+        
+        if df.empty or len(df) < 50:
             st.warning(f"❌ Недостаточно данных для {TICKERS[ticker]}")
             continue
         
         prices = df['Close'].values
         dates = df.index
         
-        # 1. XGBoost (быстрое дерево, подходит для волатильных рядов)
+        # 1. XGBoost (простая регрессия по дням)
         try:
             from xgboost import XGBRegressor
-            # Используем предсказание по последним 20 дням
-            window = 20
-            if len(prices) > window:
-                X = np.arange(len(prices)).reshape(-1,1)
-                y = prices
-                split = int(len(X) * 0.9)
-                model_xgb = XGBRegressor(n_estimators=100, learning_rate=0.1)
+            # Создаём признаки: последние N дней
+            window = 10
+            if len(prices) > window + 5:
+                X = []
+                y = []
+                for i in range(window, len(prices)):
+                    X.append(prices[i-window:i])
+                    y.append(prices[i])
+                X = np.array(X)
+                y = np.array(y)
+                
+                split = int(len(X) * 0.8)
+                model_xgb = XGBRegressor(n_estimators=50, learning_rate=0.1, random_state=42)
                 model_xgb.fit(X[:split], y[:split])
-                next_day = np.array([[len(prices)]])
-                pred_xgb = model_xgb.predict(next_day)[0]
+                
+                last_window = prices[-window:].reshape(1, -1)
+                pred_xgb = model_xgb.predict(last_window)[0]
                 change_xgb = (pred_xgb - prices[-1]) / prices[-1] * 100
                 signal_xgb = "🔴 Продавать" if change_xgb < -1 else ("🟢 Покупать" if change_xgb > 1 else "🟡 Держать")
                 st.write(f"**XGBoost:** прогноз ${pred_xgb:.2f}  ({change_xgb:+.2f}%) → {signal_xgb}")
             else:
                 st.write("**XGBoost:** недостаточно данных")
         except Exception as e:
-            st.write(f"**XGBoost:** ошибка ({e})")
+            st.write(f"**XGBoost:** ошибка — {str(e)[:50]}")
         
-        # 2. LSTM (нейросеть — долго, но для краткосрочного прогноза часто избыточна)
-        try:
-            from tensorflow.keras.models import Sequential
-            from tensorflow.keras.layers import LSTM, Dense
-            # Упрощённая LSTM (чтобы не грузить CPU/GPU)
-            # Можно пропустить, если времени нет, но для демонстрации добавим заглушку
-            # Для реального использования требуется масштабирование и много эпох
-            # Пока заглушка: используем XGBoost как прокси, но в боевой версии нужно полноценно реализовать
-            # (поскольку это сложная модель, мы её здесь не разворачиваем полностью, а отмечаем как требующую доработки)
-            st.write(f"**LSTM:** ⏳ требует отдельного раздела (сложная нейросеть)")
-        except:
-            st.write(f"**LSTM:** библиотека не установлена (`pip install tensorflow`)")
-        
-        # 3. SARIMAX с экзогенными переменными
+        # 2. SARIMAX (с экзогенными переменными, если есть)
         try:
             from statsmodels.tsa.statespace.sarimax import SARIMAX
-            # Берём последние 200 точек для скорости
-            y_series = pd.Series(prices[-200:], index=dates[-200:])
-            if exog_data is not None:
+            # Берём последние 120 точек для скорости
+            y_series = pd.Series(prices[-120:], index=dates[-120:])
+            
+            if exog_data is not None and len(exog_data) > 20:
                 # Выравниваем экзогенные данные по датам
                 exog_aligned = exog_data.reindex(y_series.index).dropna()
-                if len(exog_aligned) > 10:
-                    model_sarimax = SARIMAX(y_series, exog=exog_aligned, order=(1,1,1), seasonal_order=(0,0,0,0))
-                    res_sarimax = model_sarimax.fit(disp=False)
+                if len(exog_aligned) > 20:
+                    model_sarimax = SARIMAX(y_series, exog=exog_aligned, order=(1,0,1), seasonal_order=(0,0,0,0))
+                    res_sarimax = model_sarimax.fit(disp=False, maxiter=200)
                     forecast = res_sarimax.forecast(steps=1, exog=exog_aligned.iloc[[-1]])
                     pred_sarimax = forecast.iloc[0]
                     change_sarimax = (pred_sarimax - prices[-1]) / prices[-1] * 100
@@ -301,8 +294,16 @@ if ensemble_on and selected:
                 else:
                     st.write("**SARIMAX:** недостаточно выровненных внешних данных")
             else:
-                st.write("**SARIMAX:** внешние данные отсутствуют")
+                # SARIMAX без экзогенных переменных
+                model_sarimax = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
+                res_sarimax = model_sarimax.fit(disp=False, maxiter=200)
+                forecast = res_sarimax.forecast(steps=1)
+                pred_sarimax = forecast.iloc[0]
+                change_sarimax = (pred_sarimax - prices[-1]) / prices[-1] * 100
+                signal_sarimax = "🔴 Продавать" if change_sarimax < -1 else ("🟢 Покупать" if change_sarimax > 1 else "🟡 Держать")
+                st.write(f"**SARIMAX (без внешних):** прогноз ${pred_sarimax:.2f}  ({change_sarimax:+.2f}%) → {signal_sarimax}")
         except Exception as e:
-            st.write(f"**SARIMAX:** ошибка ({e})")
+            st.write(f"**SARIMAX:** ошибка — {str(e)[:50]}")
         
         st.markdown("---")
+        
