@@ -276,34 +276,56 @@ if ensemble_on and selected:
         
         # 2. SARIMAX (с экзогенными переменными, если есть)
         try:
-            from statsmodels.tsa.statespace.sarimax import SARIMAX
-            # Берём последние 120 точек для скорости
-            y_series = pd.Series(prices[-120:], index=dates[-120:])
-            
-            if exog_data is not None and len(exog_data) > 20:
-                # Выравниваем экзогенные данные по датам
-                exog_aligned = exog_data.reindex(y_series.index).dropna()
-                if len(exog_aligned) > 20:
-                    model_sarimax = SARIMAX(y_series, exog=exog_aligned, order=(1,0,1), seasonal_order=(0,0,0,0))
-                    res_sarimax = model_sarimax.fit(disp=False, maxiter=200)
-                    forecast = res_sarimax.forecast(steps=1, exog=exog_aligned.iloc[[-1]])
-                    pred_sarimax = forecast.iloc[0]
-                    change_sarimax = (pred_sarimax - prices[-1]) / prices[-1] * 100
-                    signal_sarimax = "🔴 Продавать" if change_sarimax < -1 else ("🟢 Покупать" if change_sarimax > 1 else "🟡 Держать")
-                    st.write(f"**SARIMAX:** прогноз ${pred_sarimax:.2f}  ({change_sarimax:+.2f}%) → {signal_sarimax}")
-                else:
-                    st.write("**SARIMAX:** недостаточно выровненных внешних данных")
-            else:
-                # SARIMAX без экзогенных переменных
-                model_sarimax = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
-                res_sarimax = model_sarimax.fit(disp=False, maxiter=200)
-                forecast = res_sarimax.forecast(steps=1)
-                pred_sarimax = forecast.iloc[0]
-                change_sarimax = (pred_sarimax - prices[-1]) / prices[-1] * 100
-                signal_sarimax = "🔴 Продавать" if change_sarimax < -1 else ("🟢 Покупать" if change_sarimax > 1 else "🟡 Держать")
-                st.write(f"**SARIMAX (без внешних):** прогноз ${pred_sarimax:.2f}  ({change_sarimax:+.2f}%) → {signal_sarimax}")
-        except Exception as e:
-            st.write(f"**SARIMAX:** ошибка — {str(e)[:50]}")
+         # ----- SARIMAX с метриками качества -----
+try:
+    from statsmodels.tsa.statespace.sarimax import SARIMAX
+    from statsmodels.stats.diagnostic import acorr_ljungbox
+    
+    y_series = pd.Series(prices[-200:], index=df.index[-200:])
+    
+    # Экзогенные переменные (если есть)
+    exog_data = get_exogenous_data()
+    if exog_data is not None:
+        exog_aligned = exog_data.reindex(y_series.index).dropna()
+        use_exog = len(exog_aligned) > 10
+    else:
+        use_exog = False
+    
+    # Обучаем модель
+    if use_exog:
+        model_sar = SARIMAX(y_series, exog=exog_aligned, order=(1,0,1), seasonal_order=(0,0,0,0))
+    else:
+        model_sar = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
+    
+    res_sar = model_sar.fit(disp=False, maxiter=200)
+    
+    # --- Метрики качества ---
+    aic = res_sar.aic
+    bic = res_sar.bic
+    
+    # Ширина доверительного интервала (средняя)
+    forecast_result = res_sar.get_forecast(steps=1, exog=exog_aligned.iloc[[-1]] if use_exog else None)
+    pred_sar = forecast_result.predicted_mean.iloc[0]
+    conf_int = forecast_result.conf_int()
+    width = (conf_int.iloc[0, 1] - conf_int.iloc[0, 0]) / 2
+    width_pct = (width / pred_sar) * 100
+    
+    # Тест Льюнга-Бокса на остатки (проверка, есть ли паттерны в ошибках)
+    resid = res_sar.resid
+    lb_test = acorr_ljungbox(resid, lags=[10], return_df=True)
+    p_value = lb_test['lb_pvalue'].iloc[0]
+    
+    # Оценка надёжности
+    reliability = "🟢 Высокая" if (width_pct < 5 and p_value > 0.05) else ("🟡 Средняя" if (width_pct < 10 and p_value > 0.01) else "🔴 Низкая")
+    
+    st.write(f"**SARIMAX:** прогноз ${pred_sar:.2f}")
+    st.caption(f"AIC: {aic:.1f} | BIC: {bic:.1f}")
+    st.caption(f"Доверительный интервал: ±${width:.2f} ({width_pct:.1f}%)")
+    st.caption(f"P-value (остатки): {p_value:.3f} {'✅' if p_value > 0.05 else '❌ структура осталась'}")
+    st.caption(f"Надёжность прогноза: {reliability}")
+    
+except Exception as e:
+    st.write(f"**SARIMAX:** ошибка — {str(e)[:100]}")  
         
         st.markdown("---")
         
