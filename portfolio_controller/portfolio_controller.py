@@ -275,8 +275,6 @@ if ensemble_on and selected:
             st.write(f"**XGBoost:** ошибка — {str(e)[:50]}")
         
         # 2. SARIMAX (с экзогенными переменными, если есть)
-        try:
-         # ----- SARIMAX с метриками качества -----
 try:
     from statsmodels.tsa.statespace.sarimax import SARIMAX
     from statsmodels.stats.diagnostic import acorr_ljungbox
