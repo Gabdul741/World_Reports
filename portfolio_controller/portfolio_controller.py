@@ -97,15 +97,14 @@ def get_signal(current_price, forecast_row):
 # -------------------------------------------------------------------
 results = []
 for ticker in selected:
-    with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
-    if ticker == "CL=F":
-    df = load_wti_safely()
-else:
-    df = load_data(ticker, HISTORY_YEARS)
-        if df is None or len(df) < 50:
-            st.warning(f"⚠️ Недостаточно данных для {TICKERS[ticker]}")
-            continue
+    with st.spinner(...):
+        if ticker == "CL=F":           # 8 пробелов
+            df = load_wti_safely()     # 12 пробелов
+        else:
+            df = load_data(...)        # 12 пробелов
 
+        if df is None:                 # 8 пробелов
+            continue
         current_price = df["y"].iloc[-1]
 
         # ----- ЗАЩИТА ОТ АНОМАЛИЙ WTI -----
