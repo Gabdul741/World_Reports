@@ -7,3 +7,5 @@ matplotlib
 numpy
 yfinance
 prophet
+xgboost
+statsmodels
