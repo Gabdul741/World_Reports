@@ -97,7 +97,7 @@ def get_signal(current_price, forecast_row):
 # -------------------------------------------------------------------
 results = []
 for ticker in selected:
-with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
+    with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
     if ticker == "CL=F":
     df = load_wti_safely()
 else:
