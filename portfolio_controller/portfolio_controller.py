@@ -63,7 +63,7 @@ def load_wti_safely():
     ticker = "CL=F"
     df = yf.download(ticker, period="5d", progress=False)
     if not df.empty:
-    last_price = float(df["Close"].iloc[-1])   # ← явно приводим к числу
+        last_price = float(df["Close"].iloc[-1])   # ← явно приводим к числу
     if 10 < last_price < 200:
         df = df.reset_index()[["Date", "Close"]]
         df.columns = ["ds", "y"]
