@@ -75,7 +75,10 @@ for ticker in selected:
         if df is None or len(df) < 50:
             st.warning(f"⚠️ Недостаточно данных для {TICKERS[ticker]}")
             continue
-
+if ticker == "CL=F":
+    if current_price > 200 or current_price < 10:
+        st.warning(f"⚠️ Аномальные данные по WTI (${current_price:.2f}), пропускаем")
+        continue
         forecast = make_forecast(df, FORECAST_DAYS)
         current_price = df["y"].iloc[-1]
         signal = get_signal(current_price, forecast.iloc[0])
