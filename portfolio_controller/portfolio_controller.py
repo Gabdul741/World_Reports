@@ -22,7 +22,7 @@ selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default="BNO": "Нефть Brent ETF"
+    default=["BNO", "GLD", "SLV"]
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
