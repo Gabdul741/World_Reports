@@ -11,7 +11,7 @@ st.markdown("Прогноз на 7 дней, цветные сигналы: 🟢
 
 # --- АКТИВЫ (новые: WTI и серебро) ---
 TICKERS = {
-    "USO": "Нефть WTI (через USO)",
+    "BNO": "Нефть Brent ETF",
     "SI=F": "Серебро",
     "^GSPC": "S&P 500",
     "AAPL": "Apple",
@@ -22,7 +22,7 @@ selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default=["USO", "SI=F", "^GSPC"]
+    default="BNO": "Нефть Brent ETF",
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
