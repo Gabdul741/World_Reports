@@ -63,11 +63,11 @@ def load_wti_safely():
     ticker = "CL=F"
     df = yf.download(ticker, period="5d", progress=False)
     if not df.empty:
-        last_price = df["Close"].iloc[-1]
-        if 10 < last_price < 200:
-            df = df.reset_index()[["Date", "Close"]]
-            df.columns = ["ds", "y"]
-            return df
+    last_price = float(df["Close"].iloc[-1])   # ← явно приводим к числу
+    if 10 < last_price < 200:
+        df = df.reset_index()[["Date", "Close"]]
+        df.columns = ["ds", "y"]
+        return df
     # если аномалия — Alpha Vantage
     url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=CL&apikey={ALPHA_VANTAGE_KEY}"
     try:
