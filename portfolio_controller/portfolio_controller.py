@@ -11,24 +11,24 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 st.set_page_config(layout="wide")
 st.title("📊 Портфельный контролёр с ИИ")
 st.markdown("Прогноз на 7 дней, сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
-
-# -------------------------------------------------------------------
-# 1. АКТИВЫ (только стабильные — заменяйте USO на BNO при желании)
-# -------------------------------------------------------------------
 TICKERS = {
-    "USO": "Нефть (коррелят WTI)",
+    "CL=F": "Нефть WTI (прямой фьючерс)",
+    "USO": "Нефть WTI (ETF USO)",
     "GLD": "Золото ETF",
     "SLV": "Серебро ETF",
     "QQQ": "Nasdaq 100 ETF",
     "AAPL": "Apple Inc.",
     "MSFT": "Microsoft Corp."
 }
+# -------------------------------------------------------------------
+# 1. АКТИВЫ (только стабильные — заменяйте USO на BNO при желании)
+# -------------------------------------------------------------------
 
 selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default=["USO", "GLD", "SLV"]
+    default=["CL=F", "USO", "GLD", "SLV"]
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
