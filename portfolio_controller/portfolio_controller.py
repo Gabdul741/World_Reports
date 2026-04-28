@@ -9,11 +9,14 @@ from xgboost import XGBRegressor
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 st.set_page_config(layout="wide")
-st.title("📊 Портфельный контролёр с ИИ")
+st.title("📊 Портфельный контролёр с ИИ (прямой WTI)")
 st.markdown("Прогноз на 7 дней, сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
 
+# -------------------------------------------------------------------
+# 1. АКТИВЫ — ТОЛЬКО WTI (CL=F) + эталоны
+# -------------------------------------------------------------------
 TICKERS = {
-    "USO": "Нефть (коррелят WTI)",
+    "CL=F": "Нефть WTI (прямой фьючерс)",
     "GLD": "Золото ETF",
     "SLV": "Серебро ETF",
     "QQQ": "Nasdaq 100 ETF",
@@ -25,12 +28,15 @@ selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default=["USO", "GLD", "SLV"]
+    default=["CL=F", "GLD", "SLV"]
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
 FORECAST_DAYS = 7
 
+# -------------------------------------------------------------------
+# 2. ЗАГРУЗКА ДАННЫХ
+# -------------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_data(ticker, years):
     end = datetime.now()
@@ -59,6 +65,9 @@ def get_signal(current_price, forecast_row):
     else:
         return "🟡 Держать"
 
+# -------------------------------------------------------------------
+# 3. ОСНОВНОЙ ЦИКЛ
+# -------------------------------------------------------------------
 results = []
 for ticker in selected:
     with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
@@ -67,8 +76,15 @@ for ticker in selected:
             st.warning(f"⚠️ Недостаточно данных для {TICKERS[ticker]}")
             continue
 
-        forecast = make_forecast(df, FORECAST_DAYS)
         current_price = df["y"].iloc[-1]
+
+        # ----- ЗАЩИТА ОТ АНОМАЛИЙ WTI -----
+        if ticker == "CL=F" and (current_price > 200 or current_price < 10):
+            st.warning(f"⚠️ Аномальные данные по WTI (${current_price:.2f}) — пропускаем")
+            continue
+        # ---------------------------------
+
+        forecast = make_forecast(df, FORECAST_DAYS)
         signal = get_signal(current_price, forecast.iloc[0])
 
         results.append({
@@ -80,12 +96,16 @@ for ticker in selected:
             "Сигнал": signal,
         })
 
+        # График
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df["ds"], y=df["y"], mode="lines", name="История"))
         fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat"], mode="lines+markers", name="Прогноз"))
         fig.update_layout(title=f"{TICKERS[ticker]} — прогноз Prophet на {FORECAST_DAYS} дней")
         st.plotly_chart(fig, use_container_width=True)
 
+# -------------------------------------------------------------------
+# 4. ТАБЛИЦА СИГНАЛОВ
+# -------------------------------------------------------------------
 st.subheader("📋 Сигналы Prophet по активам")
 if results:
     df_results = pd.DataFrame(results)
@@ -102,11 +122,14 @@ if sells:
 if not buys and not sells:
     st.info("🟡 Ничего не делайте, наблюдайте")
 
+# -------------------------------------------------------------------
+# 5. АНСАМБЛЬ (XGBoost + SARIMAX) – отдельная опция
+# -------------------------------------------------------------------
 st.sidebar.markdown("---")
 ensemble_on = st.sidebar.checkbox("🔬 Сравнение XGBoost / SARIMAX", value=False)
 
 if ensemble_on and results:
-    st.subheader("🧪 Сравнение XGBoost и SARIMAX")
+    st.subheader("🧪 Сравнение прогнозов моделей")
     for ticker in selected:
         with st.expander(f"{TICKERS[ticker]} ({ticker})", expanded=False):
             end = datetime.now()
@@ -119,6 +142,7 @@ if ensemble_on and results:
             prices = df_long["Close"].values
             last_price = prices[-1]
 
+            # XGBoost
             try:
                 window = 10
                 X, y = [], []
@@ -137,6 +161,7 @@ if ensemble_on and results:
             except Exception as e:
                 st.error(f"XGBoost ошибка: {e}")
 
+            # SARIMAX
             try:
                 y_series = pd.Series(prices[-200:], index=df_long.index[-200:])
                 model_sar = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
