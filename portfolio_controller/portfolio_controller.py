@@ -54,7 +54,34 @@ def make_forecast(df, days):
     future = model.make_future_dataframe(periods=days, include_history=False)
     forecast = model.predict(future)
     return forecast
+import requests
 
+ALPHA_VANTAGE_KEY = "A8K80FSHR97RBSEZ"
+
+def load_wti_safely():
+    # сначала yfinance
+    ticker = "CL=F"
+    df = yf.download(ticker, period="5d", progress=False)
+    if not df.empty:
+        last_price = df["Close"].iloc[-1]
+        if 10 < last_price < 200:
+            df = df.reset_index()[["Date", "Close"]]
+            df.columns = ["ds", "y"]
+            return df
+    # если аномалия — Alpha Vantage
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=CL&apikey={ALPHA_VANTAGE_KEY}"
+    try:
+        r = requests.get(url)
+        data = r.json()
+        if "Time Series (Daily)" in data:
+            series = data["Time Series (Daily)"]
+            dates = sorted(series.keys())[-60:]
+            prices = [float(series[d]["4. close"]) for d in dates]
+            df_av = pd.DataFrame({"ds": pd.to_datetime(dates), "y": prices})
+            return df_av
+    except:
+        pass
+    return None
 def get_signal(current_price, forecast_row):
     low = forecast_row["yhat_lower"]
     high = forecast_row["yhat_upper"]
@@ -71,7 +98,10 @@ def get_signal(current_price, forecast_row):
 results = []
 for ticker in selected:
     with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
-        df = load_data(ticker, HISTORY_YEARS)
+        if ticker == "CL=F":
+    df = load_wti_safely()
+else:
+    df = load_data(ticker, HISTORY_YEARS)
         if df is None or len(df) < 50:
             st.warning(f"⚠️ Недостаточно данных для {TICKERS[ticker]}")
             continue
