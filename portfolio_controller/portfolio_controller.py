@@ -13,19 +13,16 @@ st.title("📊 Портфельный контролёр с ИИ")
 st.markdown("Прогноз на 7 дней, сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
 
 TICKERS = {
-    "USO": "Нефть ETF",
-    "GLD": "Золото ETF",
+    "CL=F": "Нефть WTI",
     "SLV": "Серебро ETF",
-    "QQQ": "Nasdaq 100 ETF",
-    "AAPL": "Apple Inc.",
-    "MSFT": "Microsoft Corp."
+    "^GSPC": "S&P 500",
 }
 
 selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default=["USO", "GLD", "SLV"]
+    default=["CL=F", "SLV", "^GSPC"]
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
