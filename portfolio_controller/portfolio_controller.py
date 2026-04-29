@@ -1,38 +1,40 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import numpy as np
 from prophet import Prophet
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+from xgboost import XGBRegressor
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 st.set_page_config(layout="wide")
-st.title("📊 Портфельный контролёр с ИИ (Prophet)")
-st.markdown("Прогноз на 7 дней, цветные сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
+st.title("📊 Портфельный контролёр с ИИ")
+st.markdown("Прогноз на 7 дней, сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
 
-# --- АКТИВЫ (новые: WTI и серебро) ---
 TICKERS = {
-    "USO": "Нефть WTI (через USO)",
-    "SI=F": "Серебро",
-    "^GSPC": "S&P 500",
-    "AAPL": "Apple",
-    "XOM": "Exxon Mobil"
+    "USO": "Нефть ETF",
+    "GLD": "Золото ETF",
+    "SLV": "Серебро ETF",
+    "QQQ": "Nasdaq 100 ETF",
+    "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft Corp."
 }
 
 selected = st.multiselect(
     "Выберите активы (2–5 шт)",
     options=list(TICKERS.keys()),
     format_func=lambda x: TICKERS[x],
-    default=["USO", "SI=F", "^GSPC"]
+    default=["USO", "GLD", "SLV"]
 )
 
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
 FORECAST_DAYS = 7
-show_interval = st.checkbox("📈 Показать доверительный интервал на графике", value=False)
 
 @st.cache_data(ttl=3600)
 def load_data(ticker, years):
     end = datetime.now()
-    start = end - timedelta(days=365*years)
+    start = end - timedelta(days=365 * years)
     df = yf.download(ticker, start=start, end=end, progress=False)
     if df.empty:
         return None
@@ -58,41 +60,17 @@ def get_signal(current_price, forecast_row):
         return "🟡 Держать"
 
 results = []
-
 for ticker in selected:
     with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
         df = load_data(ticker, HISTORY_YEARS)
         if df is None or len(df) < 50:
-            st.warning(f"❌ Недостаточно данных для {TICKERS[ticker]}")
+            st.warning(f"⚠️ Недостаточно данных для {TICKERS[ticker]}")
             continue
-        
-        forecast = make_forecast(df, FORECAST_DAYS)
+
         current_price = df["y"].iloc[-1]
+        forecast = make_forecast(df, FORECAST_DAYS)
         signal = get_signal(current_price, forecast.iloc[0])
-        
-        with st.expander(f"📊 Точность прогноза для {TICKERS[ticker]}"):
-            test_len = min(100, len(df))
-            train_df = df.iloc[:-test_len].copy()
-            if len(train_df) > 30:
-                test_model = Prophet(daily_seasonality=True)
-                test_model.fit(train_df)
-                test_forecast = test_model.predict(df.iloc[-test_len:][["ds"]])
-                actual = df.iloc[-test_len:]["y"].values
-                predicted = test_forecast["yhat"].values
-                mae = abs(actual - predicted).mean()
-                coverage = ((actual >= test_forecast["yhat_lower"].values) & 
-                            (actual <= test_forecast["yhat_upper"].values)).mean() * 100
-                st.metric("Средняя ошибка (MAE)", f"${mae:.2f}")
-                st.metric("Попадание в интервал", f"{coverage:.1f}%")
-                if coverage > 70:
-                    st.success("✅ Доверительные интервалы надёжны")
-                elif coverage > 50:
-                    st.warning("⚠️ Интервалы работают средне")
-                else:
-                    st.error("❌ Интервалы ненадёжны, прогноз с осторожностью")
-            else:
-                st.info("Недостаточно данных для оценки точности")
-        
+
         results.append({
             "Актив": TICKERS[ticker],
             "Цена сейчас": f"${current_price:.2f}",
@@ -101,229 +79,73 @@ for ticker in selected:
             "Верхняя граница": f"${forecast.iloc[0]['yhat_upper']:.2f}",
             "Сигнал": signal,
         })
-        
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df["ds"], y=df["y"], mode="lines", name="История"))
         fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat"], mode="lines+markers", name="Прогноз"))
-        if show_interval:
-            fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat_upper"], mode="lines", line=dict(dash="dash"), name="Верхняя граница"))
-            fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat_lower"], mode="lines", line=dict(dash="dash"), name="Нижняя граница"))
-            fig.add_trace(go.Scatter(
-                x=pd.concat([forecast["ds"], forecast["ds"][::-1]]),
-                y=pd.concat([forecast["yhat_upper"], forecast["yhat_lower"][::-1]]),
-                fill='toself', fillcolor='rgba(255,255,0,0.2)', line=dict(color='rgba(255,255,0,0)'),
-                name="Доверительный интервал", showlegend=True
-            ))
-        fig.update_layout(title=f"{TICKERS[ticker]} — прогноз на {FORECAST_DAYS} дней")
+        fig.update_layout(title=f"{TICKERS[ticker]} — прогноз Prophet на {FORECAST_DAYS} дней")
         st.plotly_chart(fig, use_container_width=True)
 
-# --- Сводная таблица ---
-st.subheader("📋 Сигналы по активам")
+st.subheader("📋 Сигналы Prophet по активам")
 if results:
     df_results = pd.DataFrame(results)
     st.dataframe(df_results, use_container_width=True)
 else:
-    st.warning("Нет данных для отображения. Проверьте выбранные активы.")
+    st.warning("Нет данных для отображения")
 
-# --- Итоговая рекомендация ---
-st.subheader("🧠 Итоговая рекомендация")
-buys = [r["Актив"] for r in results if "Купить" in r["Сигнал"]]
-sells = [r["Актив"] for r in results if "Продавать" in r["Сигнал"]]
-
+buys = [r["Актив"] for r in results if "🟢" in r["Сигнал"]]
+sells = [r["Актив"] for r in results if "🔴" in r["Сигнал"]]
 if buys:
     st.success(f"🟢 Рассмотрите покупку: {', '.join(buys)}")
 if sells:
     st.error(f"🔴 Рассмотрите продажу: {', '.join(sells)}")
 if not buys and not sells:
     st.info("🟡 Ничего не делайте, наблюдайте")
-# ========== БЭКТЕСТ (обкатка) ==========
-# ========== УПРОЩЁННЫЙ БЭКТЕСТ (без ежедневного переобучения) ==========
+
 st.sidebar.markdown("---")
-if st.sidebar.button("🔁 Быстрый бэктест (обкатка)"):
-    st.subheader("📊 Бэктест стратегии на истории")
-    st.info("Модель обучается один раз на последних 3 годах, затем проверяется на следующих 6 месяцах")
-    
-    results_backtest = []
-    TEST_MONTHS = 6
-    
+ensemble_on = st.sidebar.checkbox("🔬 Сравнение XGBoost / SARIMAX", value=False)
+
+if ensemble_on and results:
+    st.subheader("🧪 Сравнение XGBoost и SARIMAX")
     for ticker in selected:
-        with st.spinner(f"Обрабатываю {TICKERS[ticker]}..."):
-            # Скачиваем длинную историю (4 года)
+        with st.expander(f"{TICKERS[ticker]} ({ticker})", expanded=False):
             end = datetime.now()
             start = end - timedelta(days=365*4)
-            df_full = yf.download(ticker, start=start, end=end, progress=False)
-            if df_full.empty or len(df_full) < 500:
+            df_long = yf.download(ticker, start=start, end=end, progress=False)
+            if df_long.empty or len(df_long) < 100:
                 st.warning(f"Недостаточно данных для {TICKERS[ticker]}")
                 continue
-            
-            # Разделяем на обучение и тест (первые 3 года обучение, последние 6 месяцев тест)
-            split_date = datetime.now() - timedelta(days=30*TEST_MONTHS)
-            train = df_full[df_full.index < split_date]
-            test = df_full[df_full.index >= split_date]
-            
-            if len(train) < 100 or len(test) < 50:
-                st.warning(f"Недостаточно тестовых данных для {TICKERS[ticker]}")
-                continue
-            
-            # Обучаем модель на тренировочных данных
-            train_df = train.reset_index()[["Date", "Close"]]
-            train_df.columns = ["ds", "y"]
-            model = Prophet(daily_seasonality=True)
-            model.fit(train_df)
-            
-            # Делаем прогноз на тестовый период
-            test_df = test.reset_index()[["Date"]]
-            test_df.columns = ["ds"]
-            forecast = model.predict(test_df)
-            
-            # Считаем, сколько раз сигнал совпал с движением вверх/вниз
-            # (упрощённо: сравнение прогноза с реальностью)
-            actual = test["Close"].values
-            predicted = forecast["yhat"].values
-            correct_up = 0
-            correct_down = 0
-            total = len(actual) - 1
-            
-            for i in range(total):
-                if predicted[i] > actual[i] and actual[i+1] > actual[i]:
-                    correct_up += 1
-                elif predicted[i] < actual[i] and actual[i+1] < actual[i]:
-                    correct_down += 1
-            
-            accuracy = (correct_up + correct_down) / total * 100 if total > 0 else 0
-            
-            st.metric(f"{TICKERS[ticker]} — точность направления прогноза", f"{accuracy:.1f}%")
-            if accuracy > 55:
-                st.success("✅ Прогноз лучше случайного")
-            else:
-                st.warning("⚠️ Прогноз слабее случайного")
-            
-            results_backtest.append({
-                "Актив": TICKERS[ticker],
-                "Точность направления": f"{accuracy:.1f}%",
-                "Тестовых дней": total,
-                "Оценка": "✅ лучше случайного" if accuracy > 55 else "⚠️ хуже случайного"
-            })
-    
-    if results_backtest:
-        st.subheader("📋 Сводка по активам")
-        st.dataframe(pd.DataFrame(results_backtest), use_container_width=True)
-# ========== МОДУЛЬ АНСАМБЛЯ (XGBoost/LSTM/SARIMAX) ==========
-# ========== МОДУЛЬ АНСАМБЛЯ (XGBoost / SARIMAX) ==========
-st.sidebar.markdown("---")
-ensemble_on = st.sidebar.checkbox("🔮 Ансамбль (XGBoost + SARIMAX)", value=False)
 
-if ensemble_on and selected:
-    st.subheader("🤖 Мнения моделей (XGBoost / SARIMAX)")
-    
-    # --- Загрузка внешних данных для SARIMAX (экзогенные переменные) ---
-    @st.cache_data(ttl=3600)
-    def get_exogenous_data():
-        try:
-            dxy = yf.download("DX-Y.NYB", period="2y", progress=False)['Close']
-            uso = yf.download("USO", period="2y", progress=False)['Close']
-            exog = pd.DataFrame({'DXY': dxy, 'USO': uso}).dropna()
-            return exog
-        except:
-            return None
-    
-    exog_data = get_exogenous_data()
-    if exog_data is None:
-        st.info("⚠️ Внешние данные для SARIMAX не загружены, используется только авторегрессия")
-    
-    for ticker in selected:
-        st.markdown(f"### {TICKERS[ticker]} ({ticker})")
-        
-        # Скачиваем историю (2 года вместо 3)
-        end = datetime.now()
-        start = end - timedelta(days=365*2)
-        df = yf.download(ticker, start=start, end=end, progress=False)
-        
-        if df.empty or len(df) < 50:
-            st.warning(f"❌ Недостаточно данных для {TICKERS[ticker]}")
-            continue
-        
-        prices = df['Close'].values
-        dates = df.index
-        
-        # 1. XGBoost (простая регрессия по дням)
-        try:
-            from xgboost import XGBRegressor
-            # Создаём признаки: последние N дней
-            window = 10
-            if len(prices) > window + 5:
-                X = []
-                y = []
+            prices = df_long["Close"].values
+            last_price = prices[-1]
+
+            try:
+                window = 10
+                X, y = [], []
                 for i in range(window, len(prices)):
                     X.append(prices[i-window:i])
                     y.append(prices[i])
                 X = np.array(X)
-                y = np.array(y)
-                
-                split = int(len(X) * 0.8)
-                model_xgb = XGBRegressor(n_estimators=50, learning_rate=0.1, random_state=42)
+                split = int(len(X)*0.8)
+                model_xgb = XGBRegressor(n_estimators=50, random_state=42)
                 model_xgb.fit(X[:split], y[:split])
-                
-                last_window = prices[-window:].reshape(1, -1)
-                pred_xgb = model_xgb.predict(last_window)[0]
-                change_xgb = (pred_xgb - prices[-1]) / prices[-1] * 100
+                pred_xgb = model_xgb.predict(X[-1:])[0]
+                change_xgb = (pred_xgb - last_price)/last_price*100
                 signal_xgb = "🔴 Продавать" if change_xgb < -1 else ("🟢 Покупать" if change_xgb > 1 else "🟡 Держать")
-                st.write(f"**XGBoost:** прогноз ${pred_xgb:.2f}  ({change_xgb:+.2f}%) → {signal_xgb}")
-            else:
-                st.write("**XGBoost:** недостаточно данных")
-        except Exception as e:
-            st.write(f"**XGBoost:** ошибка — {str(e)[:50]}")
-        
-        # 2. SARIMAX (с экзогенными переменными, если есть)
-try:
-    from statsmodels.tsa.statespace.sarimax import SARIMAX
-    from statsmodels.stats.diagnostic import acorr_ljungbox
-    
-    y_series = pd.Series(prices[-200:], index=df.index[-200:])
-    
-    # Экзогенные переменные (если есть)
-    exog_data = get_exogenous_data()
-    if exog_data is not None:
-        exog_aligned = exog_data.reindex(y_series.index).dropna()
-        use_exog = len(exog_aligned) > 10
-    else:
-        use_exog = False
-    
-    # Обучаем модель
-    if use_exog:
-        model_sar = SARIMAX(y_series, exog=exog_aligned, order=(1,0,1), seasonal_order=(0,0,0,0))
-    else:
-        model_sar = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
-    
-    res_sar = model_sar.fit(disp=False, maxiter=200)
-    
-    # --- Метрики качества ---
-    aic = res_sar.aic
-    bic = res_sar.bic
-    
-    # Ширина доверительного интервала (средняя)
-    forecast_result = res_sar.get_forecast(steps=1, exog=exog_aligned.iloc[[-1]] if use_exog else None)
-    pred_sar = forecast_result.predicted_mean.iloc[0]
-    conf_int = forecast_result.conf_int()
-    width = (conf_int.iloc[0, 1] - conf_int.iloc[0, 0]) / 2
-    width_pct = (width / pred_sar) * 100
-    
-    # Тест Льюнга-Бокса на остатки (проверка, есть ли паттерны в ошибках)
-    resid = res_sar.resid
-    lb_test = acorr_ljungbox(resid, lags=[10], return_df=True)
-    p_value = lb_test['lb_pvalue'].iloc[0]
-    
-    # Оценка надёжности
-    reliability = "🟢 Высокая" if (width_pct < 5 and p_value > 0.05) else ("🟡 Средняя" if (width_pct < 10 and p_value > 0.01) else "🔴 Низкая")
-    
-    st.write(f"**SARIMAX:** прогноз ${pred_sar:.2f}")
-    st.caption(f"AIC: {aic:.1f} | BIC: {bic:.1f}")
-    st.caption(f"Доверительный интервал: ±${width:.2f} ({width_pct:.1f}%)")
-    st.caption(f"P-value (остатки): {p_value:.3f} {'✅' if p_value > 0.05 else '❌ структура осталась'}")
-    st.caption(f"Надёжность прогноза: {reliability}")
-    
-except Exception as e:
-    st.write(f"**SARIMAX:** ошибка — {str(e)[:100]}")  
-        
-    st.markdown("---")
-        
+                st.metric("XGBoost", f"${pred_xgb:.2f}", f"{change_xgb:+.2f}%")
+                st.caption(signal_xgb)
+            except Exception as e:
+                st.error(f"XGBoost ошибка: {e}")
+
+            try:
+                y_series = pd.Series(prices[-200:], index=df_long.index[-200:])
+                model_sar = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
+                res_sar = model_sar.fit(disp=False, maxiter=200)
+                pred_sar = res_sar.forecast(steps=1).iloc[0]
+                change_sar = (pred_sar - last_price)/last_price*100
+                signal_sar = "🔴 Продавать" if change_sar < -1 else ("🟢 Покупать" if change_sar > 1 else "🟡 Держать")
+                st.metric("SARIMAX", f"${pred_sar:.2f}", f"{change_sar:+.2f}%")
+                st.caption(signal_sar)
+                st.caption(f"AIC: {res_sar.aic:.1f} | Ширина интервала: {(res_sar.get_forecast(steps=1).conf_int().iloc[0,1] - res_sar.get_forecast(steps=1).conf_int().iloc[0,0])/2:.2f}")
+            except Exception as e:
+                st.error(f"SARIMAX ошибка: {e}")
