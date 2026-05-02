@@ -1,6 +1,3 @@
-pikis@mx:~
-$ cat ~/World_Reports/portfolio_controller/portfolio_controller.py
-import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -132,4 +129,5 @@ if sells:
     st.error(f"🔴 Рассмотрите продажу: {', '.join(sells)}")
 if not buys and not sells:
     st.info("🟡 Ничего не делайте, наблюдайте")
+
 
