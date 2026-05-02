@@ -12,6 +12,7 @@ st.set_page_config(layout="wide")
 st.title("📊 Портфельный контролёр с ИИ")
 st.markdown("Прогноз на 7 дней, сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
 
+# Активы
 TICKERS = {
     "CL=F": "Нефть WTI",
     "SLV": "Серебро ETF",
@@ -25,9 +26,18 @@ selected = st.multiselect(
     default=["CL=F", "SLV", "^GSPC"]
 )
 
+# Параметры
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
 FORECAST_DAYS = 7
 
+# Порог волатильности для блокировки сигналов
+vol_threshold = st.slider(
+    "⚠️ Порог волатильности для отмены сделок (%)",
+    min_value=1.0, max_value=10.0, value=3.0, step=0.1,
+    help="Если прогнозная волатильность (GARCH) превышает этот порог, сигналы блокируются"
+)
+
+# Загрузка данных
 @st.cache_data(ttl=3600)
 def load_data(ticker, years):
     end = datetime.now()
@@ -68,6 +78,26 @@ for ticker in selected:
         forecast = make_forecast(df, FORECAST_DAYS)
         signal = get_signal(current_price, forecast.iloc[0])
 
+        # GARCH для нефти
+        # GARCH для нефти
+        if ticker == "CL=F":
+            try:
+                from arch import arch_model
+                import numpy as np
+                prices_series = df['y'].iloc[-252:]
+                returns = prices_series.pct_change().dropna() * 100
+                model_garch = arch_model(returns, vol='Garch', p=1, q=1)
+                res_garch = model_garch.fit(update_freq=5, disp='off')
+                garch_forecast = res_garch.forecast(horizon=1)
+                vol_forecast = np.sqrt(garch_forecast.variance.values[-1, 0])
+                # Блокировка только сигналов покупки
+                if vol_forecast > vol_threshold and "🟢" in signal:
+                    signal = "🟡 Держать (высокая волатильность)"
+                # Предупреждение о высокой волатильности (опционально)
+                if vol_forecast > vol_threshold:
+                    st.warning(f"⚠️ Волатильность нефти {vol_forecast:.2f}% (выше порога {vol_threshold}%)")
+            except Exception as e:
+                st.caption(f"GARCH не рассчитан: {e}")
         results.append({
             "Актив": TICKERS[ticker],
             "Цена сейчас": f"${current_price:.2f}",
@@ -77,12 +107,14 @@ for ticker in selected:
             "Сигнал": signal,
         })
 
+        # График Prophet
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df["ds"], y=df["y"], mode="lines", name="История"))
         fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat"], mode="lines+markers", name="Прогноз"))
         fig.update_layout(title=f"{TICKERS[ticker]} — прогноз Prophet на {FORECAST_DAYS} дней")
         st.plotly_chart(fig, use_container_width=True)
 
+# Сводная таблица сигналов
 st.subheader("📋 Сигналы Prophet по активам")
 if results:
     df_results = pd.DataFrame(results)
@@ -98,51 +130,3 @@ if sells:
     st.error(f"🔴 Рассмотрите продажу: {', '.join(sells)}")
 if not buys and not sells:
     st.info("🟡 Ничего не делайте, наблюдайте")
-
-st.sidebar.markdown("---")
-ensemble_on = st.sidebar.checkbox("🔬 Сравнение XGBoost / SARIMAX", value=False)
-
-if ensemble_on and results:
-    st.subheader("🧪 Сравнение XGBoost и SARIMAX")
-    for ticker in selected:
-        with st.expander(f"{TICKERS[ticker]} ({ticker})", expanded=False):
-            end = datetime.now()
-            start = end - timedelta(days=365*4)
-            df_long = yf.download(ticker, start=start, end=end, progress=False)
-            if df_long.empty or len(df_long) < 100:
-                st.warning(f"Недостаточно данных для {TICKERS[ticker]}")
-                continue
-
-            prices = df_long["Close"].values
-            last_price = prices[-1]
-
-            try:
-                window = 10
-                X, y = [], []
-                for i in range(window, len(prices)):
-                    X.append(prices[i-window:i])
-                    y.append(prices[i])
-                X = np.array(X)
-                split = int(len(X)*0.8)
-                model_xgb = XGBRegressor(n_estimators=50, random_state=42)
-                model_xgb.fit(X[:split], y[:split])
-                pred_xgb = model_xgb.predict(X[-1:])[0]
-                change_xgb = (pred_xgb - last_price)/last_price*100
-                signal_xgb = "🔴 Продавать" if change_xgb < -1 else ("🟢 Покупать" if change_xgb > 1 else "🟡 Держать")
-                st.metric("XGBoost", f"${pred_xgb:.2f}", f"{change_xgb:+.2f}%")
-                st.caption(signal_xgb)
-            except Exception as e:
-                st.error(f"XGBoost ошибка: {e}")
-
-            try:
-                y_series = pd.Series(prices[-200:], index=df_long.index[-200:])
-                model_sar = SARIMAX(y_series, order=(1,0,1), seasonal_order=(0,0,0,0))
-                res_sar = model_sar.fit(disp=False, maxiter=200)
-                pred_sar = res_sar.forecast(steps=1).iloc[0]
-                change_sar = (pred_sar - last_price)/last_price*100
-                signal_sar = "🔴 Продавать" if change_sar < -1 else ("🟢 Покупать" if change_sar > 1 else "🟡 Держать")
-                st.metric("SARIMAX", f"${pred_sar:.2f}", f"{change_sar:+.2f}%")
-                st.caption(signal_sar)
-                st.caption(f"AIC: {res_sar.aic:.1f} | Ширина интервала: {(res_sar.get_forecast(steps=1).conf_int().iloc[0,1] - res_sar.get_forecast(steps=1).conf_int().iloc[0,0])/2:.2f}")
-            except Exception as e:
-                st.error(f"SARIMAX ошибка: {e}")
