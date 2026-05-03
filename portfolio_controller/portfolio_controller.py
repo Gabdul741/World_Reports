@@ -112,8 +112,9 @@ for ticker in selected:
                 fig_vix.add_trace(go.Scatter(x=vix_data.index, y=vix_daily, mode='lines', name='VIX / √252', line=dict(color='blue', dash='dot')))
                 fig_vix.update_layout(title="Сравнение волатильности: GARCH vs VIX", xaxis_title="Дата", yaxis_title="Волатильность (%)")
                 st.plotly_chart(fig_vix, use_container_width=True)
-
-                current_vix = float(vix_data.iloc[-1])
+            
+                current_vix = float(vix_data.iloc[-1].values[0])
+            
                 if current_vix < 15:
                     vix_signal = "🟢 Спокойно"
                 elif current_vix < 25:
