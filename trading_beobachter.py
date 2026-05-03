@@ -78,7 +78,18 @@ if st.sidebar.button("Загрузить и рассчитать"):
         garch_result = garch_model.fit(disp="off")
         garch_vol = float(garch_result.conditional_volatility.iloc[-1])
         garch_annual = garch_vol * (252**0.5)
-
+        
+        fig2, ax2 = plt.subplots(figsize=(12, 4))
+        garch_daily = garch_result.conditional_volatility
+        vix_daily_series = df["VIX"] / (252**0.5)
+        ax2.plot(garch_daily.index, garch_daily, color="red", label="GARCH", linewidth=1)
+        ax2.plot(vix_daily_series.index, vix_daily_series, color="blue", label="VIX/√252", linewidth=1)
+        ax2.set_title("GARCH vs VIX — Сравнение волатильности")
+        ax2.set_ylabel("Волатильность (%)")
+        ax2.legend()
+        plt.tight_layout()
+        st.pyplot(fig2)
+        plt.close()
         col1, col2, col3 = st.columns(3)
         col1.metric("GARCH дневная", f"{garch_vol:.2f}%")
         col2.metric("GARCH годовая", f"{garch_annual:.2f}%")
