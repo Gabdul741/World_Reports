@@ -64,7 +64,7 @@ if st.sidebar.button("Загрузить и рассчитать"):
 
         st.subheader("История цены")
         fig, ax = plt.subplots(figsize=(12, 4))
-ax.plot(df.index, df["Price"], color="blue", linewidth=1)
+        ax.plot(df.index, df["Price"], color="blue", linewidth=1)
         ax.set_title(f"{asset}")
         ax.set_xlabel("Дата")
         ax.set_ylabel("Цена ($)")
