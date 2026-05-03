@@ -1,156 +1,153 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
 import numpy as np
-from prophet import Prophet
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
+import yfinance as yf
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.metrics import mean_absolute_error
 from arch import arch_model
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
+import warnings
+warnings.filterwarnings("ignore")
 
-st.set_page_config(layout="wide")
-st.title("📊 Портфельный контролёр с ИИ")
-st.markdown("Прогноз Prophet + GARCH волатильность + VIX (рыночный)")
+st.set_page_config(page_title="Trading Beobachter", layout="wide")
+st.title("📊 Trading Beobachter Dashboard")
+st.markdown("**Система анализа и прогнозирования**")
 
-# ======================
-# 1. АКТИВЫ
-# ======================
-TICKERS = {
-    "CL=F": "Нефть WTI",
-    "SLV": "Серебро ETF",
-    "^GSPC": "S&P 500",
+st.sidebar.title("Настройки")
+asset = st.sidebar.selectbox("Актив:", [
+    "WTI Нефть (CL=F)",
+    "Серебро (SI=F)",
+    "Золото (GC=F)",
+    "S&P 500 (^GSPC)"
+])
+period = st.sidebar.selectbox("Период данных:", ["1y", "2y", "3y"])
+
+tickers = {
+    "WTI Нефть (CL=F)": "CL=F",
+    "Серебро (SI=F)": "SI=F",
+    "Золото (GC=F)": "GC=F",
+    "S&P 500 (^GSPC)": "^GSPC"
 }
+ticker = tickers[asset]
 
-selected = st.multiselect(
-    "Выберите активы (2–5 шт)",
-    options=list(TICKERS.keys()),
-    format_func=lambda x: TICKERS[x],
-    default=["CL=F", "SLV", "^GSPC"]
-)
+if st.sidebar.button("Загрузить и рассчитать"):
+    with st.spinner("Загружаем данные..."):
+        main = yf.download(ticker, period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        dxy = yf.download("DX-Y.NYB", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        sp500 = yf.download("^GSPC", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        gold = yf.download("GC=F", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        vix = yf.download("^VIX", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        uso = yf.download("USO", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        tlt = yf.download("TLT", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
 
-# ======================
-# 2. ПАРАМЕТРЫ
-# ======================
-HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
-FORECAST_DAYS = 7
+        df = pd.DataFrame({
+            "Price": main,
+            "DXY": dxy,
+            "SP500": sp500,
+            "Gold": gold,
+            "VIX": vix,
+            "USO": uso,
+            "TLT": tlt
+        }).dropna()
 
-vol_threshold = st.slider(
-    "⚠️ Порог волатильности для отмены сделок (%)",
-    min_value=1.0, max_value=10.0, value=3.0, step=0.1,
-    help="Если прогнозная волатильность (GARCH) превышает этот порог, сигналы покупки блокируются"
-)
+        today_price = float(df["Price"].iloc[-1])
+        today_vix = float(df["VIX"].iloc[-1])
+        daily_move = today_price * (today_vix/100) / (252**0.5)
 
-# ======================
-# 3. ЗАГРУЗКА ДАННЫХ
-# ======================
-@st.cache_data(ttl=3600)
-def load_data(ticker, years):
-    end = datetime.now()
-    start = end - timedelta(days=365 * years)
-    df = yf.download(ticker, start=start, end=end, progress=False)
-    if df.empty:
-        return None
-    df = df.reset_index()[["Date", "Close"]]
-    df.columns = ["ds", "y"]
-    return df
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Цена сегодня", f"${today_price:.2f}")
+        col2.metric("VIX", f"{today_vix:.2f}")
+        col3.metric("Ожид. движение", f"${daily_move:.2f}")
+        col4.metric("Данных дней", len(df))
 
-def make_forecast(df, days):
-    model = Prophet(daily_seasonality=True)
-    model.fit(df)
-    future = model.make_future_dataframe(periods=days, include_history=False)
-    forecast = model.predict(future)
-    return forecast
+        st.subheader("История цены")
+        fig, ax = plt.subplots(figsize=(12, 4))
+        ax.plot(df.index, df["Price"], color="blue", linewidth=1)
+        ax.set_title(f"{asset}")
+        ax.set_xlabel("Дата")
+        ax.set_ylabel("Цена ($)")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close()
 
-def get_signal(current_price, forecast_row):
-    low = forecast_row["yhat_lower"]
-    high = forecast_row["yhat_upper"]
-    if current_price < low:
-        return "🟢 Купить"
-    elif current_price > high:
-        return "🔴 Продавать"
-    else:
-        return "🟡 Держать"
+        st.subheader("GARCH Волатильность")
+        returns = df["Price"].pct_change().dropna() * 100
+        garch_model = arch_model(returns, vol="Garch", p=1, q=1)
+        garch_result = garch_model.fit(disp="off")
+        garch_vol = float(garch_result.conditional_volatility.iloc[-1])
+        garch_annual = garch_vol * (252**0.5)
 
-# ======================
-# 4. ГЛОБАЛЬНЫЙ VIX (ОДИН ДЛЯ ВСЕХ АКТИВОВ)
-# ======================
-vix_global = None
-try:
-    vix_data = yf.download("^VIX", period="2d", progress=False)['Close']
-    vix_global = float(vix_data.iloc[-1].values[0])
-except:
-    vix_global = None
+        fig2, ax2 = plt.subplots(figsize=(12, 4))
+        garch_daily = garch_result.conditional_volatility
+        vix_daily_series = df["VIX"] / (252**0.5)
+        ax2.plot(garch_daily.index, garch_daily, color="red", label="GARCH", linewidth=1)
+        ax2.plot(vix_daily_series.index, vix_daily_series, color="blue", label="VIX/√252", linewidth=1)
+        ax2.set_title("GARCH vs VIX — Сравнение волатильности")
+        ax2.set_ylabel("Волатильность (%)")
+        ax2.legend()
+        plt.tight_layout()
+        st.pyplot(fig2)
+        plt.close()
 
-# ======================
-# 5. ОСНОВНОЙ ЦИКЛ
-# ======================
-results = []
-for ticker in selected:
-    with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
-        df = load_data(ticker, HISTORY_YEARS)
-        if df is None or len(df) < 50:
-            st.warning(f"⚠️ Недостаточно данных для {TICKERS[ticker]}")
-            continue
+        col1, col2, col3 = st.columns(3)
+        col1.metric("GARCH дневная", f"{garch_vol:.2f}%")
+        col2.metric("GARCH годовая", f"{garch_annual:.2f}%")
+        signal = "Спокойно" if today_vix < 20 else "Осторожно" if today_vix < 30 else "Опасно!"
+        col3.metric("Сигнал VIX", signal)
 
-        current_price = df["y"].iloc[-1]
-        forecast = make_forecast(df, FORECAST_DAYS)
-        signal = get_signal(current_price, forecast.iloc[0])
+        st.subheader("Прогноз SARIMAX на завтра")
+        exog_cols = ["DXY", "SP500", "Gold", "VIX", "USO", "TLT"]
+        train = df.iloc[:-30]
+        test = df.iloc[-30:]
 
-        # GARCH для актива
-        vol_forecast = None
-        try:
-            prices_series = df['y'].iloc[-252:]
-            returns = prices_series.pct_change().dropna() * 100
-            if len(returns) > 10:
-                model_garch = arch_model(returns, vol='Garch', p=1, q=1)
-                garch_result = model_garch.fit(update_freq=5, disp='off')
-                vol_forecast = garch_result.conditional_volatility.iloc[-1]
-                if hasattr(vol_forecast, 'values'):
-                    vol_forecast = float(vol_forecast.values[0])
-                else:
-                    vol_forecast = float(vol_forecast)
-                # Блокировка сигнала покупки при высокой волатильности
-                if vol_forecast > vol_threshold and "🟢" in signal:
-                    signal = "🟡 Держать (высокая волатильность)"
-        except Exception as e:
-            # Если GARCH не рассчитался, оставляем None
-            pass
+        with st.spinner("Обучаем SARIMAX..."):
+            sarimax_model = SARIMAX(
+                train["Price"],
+                exog=train[exog_cols],
+                order=(2,1,2),
+                seasonal_order=(1,1,1,5),
+                enforce_stationarity=False,
+                enforce_invertibility=False
+            )
+            sarimax_result = sarimax_model.fit(disp=False)
+            pred = sarimax_result.forecast(steps=30, exog=test[exog_cols])
+            mae = mean_absolute_error(test["Price"], pred)
+            accuracy = 100 - (mae / test["Price"].mean() * 100)
+            last_exog = df[exog_cols].iloc[-1:]
+            tomorrow = float(sarimax_result.forecast(steps=1, exog=last_exog).iloc[0])
 
-        results.append({
-            "Актив": TICKERS[ticker],
-            "Цена сейчас": f"${current_price:.2f}",
-            "Прогноз завтра": f"${forecast.iloc[0]['yhat']:.2f}",
-            "Нижняя граница": f"${forecast.iloc[0]['yhat_lower']:.2f}",
-            "Верхняя граница": f"${forecast.iloc[0]['yhat_upper']:.2f}",
-            "Сигнал": signal,
-            "VIX (рыночный)": f"{vix_global:.2f}" if vix_global is not None else "-",
-            "GARCH (%)": f"{vol_forecast:.2f}%" if vol_forecast is not None else "-",
-        })
+        change = ((tomorrow - today_price) / today_price * 100)
+        direction = "Рост" if change > 0 else "Падение"
 
-        # График Prophet
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df["ds"], y=df["y"], mode="lines", name="История"))
-        fig.add_trace(go.Scatter(x=forecast["ds"], y=forecast["yhat"], mode="lines+markers", name="Прогноз"))
-        fig.update_layout(title=f"{TICKERS[ticker]} — прогноз Prophet на {FORECAST_DAYS} дней")
-        st.plotly_chart(fig, use_container_width=True)
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Прогноз", f"${tomorrow:.2f}")
+        col2.metric("Изменение", f"{change:.2f}%")
+        col3.metric("Точность", f"{accuracy:.1f}%")
+        col4.metric("Направление", direction)
 
-# ======================
-# 6. СВОДНАЯ ТАБЛИЦА
-# ======================
-st.subheader("📋 Сигналы Prophet по активам")
-if results:
-    df_results = pd.DataFrame(results)
-    # Переупорядочим колонки для удобства
-    column_order = ["Актив", "Цена сейчас", "Прогноз завтра", "Сигнал", "VIX (рыночный)", "GARCH (%)"]
-    df_results = df_results[column_order]
-    st.dataframe(df_results, use_container_width=True)
+        st.subheader("Ожидаемый диапазон завтра")
+        low = tomorrow - daily_move
+        high = tomorrow + daily_move
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Минимум", f"${low:.2f}")
+        col2.metric("Прогноз", f"${tomorrow:.2f}")
+        col3.metric("Максимум", f"${high:.2f}")
 
-    buys = [r["Актив"] for r in results if "🟢" in r["Сигнал"]]
-    sells = [r["Актив"] for r in results if "🔴" in r["Сигнал"]]
-    if buys:
-        st.success(f"🟢 Рассмотрите покупку: {', '.join(buys)}")
-    if sells:
-        st.error(f"🔴 Рассмотрите продажу: {', '.join(sells)}")
-    if not buys and not sells:
-        st.info("🟡 Ничего не делайте, наблюдайте")
-else:
-    st.warning("Нет данных для отображения")
+        st.subheader("Рекомендация Trading Beobachter")
+        if today_vix < 15:
+            risk = "Низкий риск - можно торговать"
+        elif today_vix < 25:
+            risk = "Умеренный риск - осторожно"
+        elif today_vix < 35:
+            risk = "Высокий риск - уменьшить позиции"
+        else:
+            risk = "Экстремальный риск - лучше не торговать!"
+
+        st.info(f"Уровень риска: {risk}")
+        st.info(f"Прогноз: {direction} до ${tomorrow:.2f} (плюс-минус ${daily_move:.2f})")
+        st.success("Источники: SARIMAX + VIX + GARCH | Данные: Yahoo Finance")
+
+st.markdown("---")
+st.caption("Trading Beobachter - Gabdul741 и Claude Sonnet 4.6 - Anthropic")
