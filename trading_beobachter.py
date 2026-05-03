@@ -19,14 +19,16 @@ st.sidebar.title("Настройки")
 asset = st.sidebar.selectbox("Актив:", [
     "WTI Нефть (CL=F)",
     "Серебро (SI=F)",
-    "Золото (GC=F)"
+    "Золото (GC=F)",
+   "S&P 500 (^GSPC)"
 ])
 period = st.sidebar.selectbox("Период данных:", ["1y", "2y", "3y"])
 
 tickers = {
     "WTI Нефть (CL=F)": "CL=F",
     "Серебро (SI=F)": "SI=F",
-    "Золото (GC=F)": "GC=F"
+    "Золото (GC=F)": "GC=F",
+    "S&P 500 (^GSPC)": "^GSPC"
 }
 ticker = tickers[asset]
 
