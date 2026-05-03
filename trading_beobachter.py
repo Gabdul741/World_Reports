@@ -62,3 +62,79 @@ if st.sidebar.button("Загрузить и рассчитать"):
 
         st.subheader("История цены")
         fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(df.index, df["Price"], color="blue", linewidth=1)
+        ax.set_title(f"{asset}")
+        ax.set_xlabel("Дата")
+        ax.set_ylabel("Цена ($)")
+        plt.tight_layout()
+        st.pyplot(fig)
+        plt.close()
+
+        st.subheader("GARCH Волатильность")
+        returns = df["Price"].pct_change().dropna() * 100
+        garch_model = arch_model(returns, vol="Garch", p=1, q=1)
+        garch_result = garch_model.fit(disp="off")
+        garch_vol = float(garch_result.conditional_volatility.iloc[-1])
+        garch_annual = garch_vol * (252**0.5)
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("GARCH дневная", f"{garch_vol:.2f}%")
+        col2.metric("GARCH годовая", f"{garch_annual:.2f}%")
+        signal = "Спокойно" if today_vix < 20 else "Осторожно" if today_vix < 30 else "Опасно!"
+        col3.metric("Сигнал VIX", signal)
+
+        st.subheader("Прогноз SARIMAX на завтра")
+        exog_cols = ["DXY", "SP500", "Gold", "VIX", "USO", "TLT"]
+        train = df.iloc[:-30]
+        test = df.iloc[-30:]
+
+        with st.spinner("Обучаем SARIMAX..."):
+            sarimax_model = SARIMAX(
+                train["Price"],
+                exog=train[exog_cols],
+                order=(2,1,2),
+                seasonal_order=(1,1,1,5),
+                enforce_stationarity=False,
+                enforce_invertibility=False
+            )
+            sarimax_result = sarimax_model.fit(disp=False)
+            pred = sarimax_result.forecast(steps=30, exog=test[exog_cols])
+            mae = mean_absolute_error(test["Price"], pred)
+            accuracy = 100 - (mae / test["Price"].mean() * 100)
+            last_exog = df[exog_cols].iloc[-1:]
+            tomorrow = float(sarimax_result.forecast(steps=1, exog=last_exog).iloc[0])
+
+        change = ((tomorrow - today_price) / today_price * 100)
+        direction = "Рост" if change > 0 else "Падение"
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Прогноз", f"${tomorrow:.2f}")
+        col2.metric("Изменение", f"{change:.2f}%")
+        col3.metric("Точность", f"{accuracy:.1f}%")
+        col4.metric("Направление", direction)
+
+        st.subheader("Ожидаемый диапазон завтра")
+        low = tomorrow - daily_move
+        high = tomorrow + daily_move
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Минимум", f"${low:.2f}")
+        col2.metric("Прогноз", f"${tomorrow:.2f}")
+        col3.metric("Максимум", f"${high:.2f}")
+
+        st.subheader("Рекомендация Trading Beobachter")
+        if today_vix < 15:
+            risk = "Низкий риск - можно торговать"
+        elif today_vix < 25:
+            risk = "Умеренный риск - осторожно"
+        elif today_vix < 35:
+            risk = "Высокий риск - уменьшить позиции"
+        else:
+            risk = "Экстремальный риск - лучше не торговать!"
+
+        st.info(f"Уровень риска: {risk}")
+        st.info(f"Прогноз: {direction} до ${tomorrow:.2f} (плюс-минус ${daily_move:.2f})")
+        st.success("Источники: SARIMAX + VIX + GARCH | Данные: Yahoo Finance")
+
+st.markdown("---")
+st.caption("Trading Beobachter - Gabdul741 и Claude Sonnet 4.6 - Anthropic")
