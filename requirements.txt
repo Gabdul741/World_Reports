@@ -12,6 +12,4 @@ statsmodels
 arch
 scipy
 scikit-learn
-ta
-datetime
-plotly.graph_objects 
+ta 
