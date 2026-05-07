@@ -123,7 +123,8 @@ for i, name in enumerate(main_assets):
                 x=dates_list + dates_list[::-1], # Идем вперед по датам и возвращаемся назад
                 y=upper_bound + lower_bound[::-1], # Верхняя граница, затем нижняя в обратном порядке
                 fill='toself',
-                fillcolor='rgba(255, 75, 75, 0.1)', # Бледный красный цвет
+                fillcolor='rgba(255, 0, 0, 0.08)', # Будет нежно-розовым и очень четким
+                #fillcolor='rgba(255, 75, 75, 0.1)', # Бледный красный цвет
                 line=dict(color='rgba(255,255,255,0)'),
                 hoverinfo="skip",
                 name='Зона риска (GARCH)'
@@ -146,11 +147,15 @@ for i, name in enumerate(main_assets):
                 height=300, 
                 margin=dict(l=0, r=0, t=10, b=0), 
                 legend=dict(orientation="h", y=-0.1, font=dict(color="white")), 
-                template="plotly_dark",
-                font=dict(color="white"), 
+                #template="plotly_dark",
+                #font=dict(color="white"), 
                 # Заменяем прозрачность на конкретный темно-серый цвет
-                paper_bgcolor='#1E1E1E', 
-                plot_bgcolor='#1E1E1E',
+                #paper_bgcolor='#1E1E1E', 
+                #plot_bgcolor='#1E1E1E',
+                template="plotly_white",
+                paper_bgcolor='white', 
+                plot_bgcolor='white',
+                font=dict(color="black"), # Обязательно смените цвет шрифта!
                 hovermode="x unified"
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -163,3 +168,4 @@ for i, name in enumerate(main_assets):
                 st.error("🔴 СИГНАЛ: SELL")
             else:
                 st.warning("⚪️ СИГНАЛ: HOLD")
+

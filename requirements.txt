@@ -10,3 +10,6 @@ prophet
 xgboost
 statsmodels
 arch
+scipy
+scikit-learn
+ta 

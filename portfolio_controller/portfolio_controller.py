@@ -5,14 +5,15 @@ import numpy as np
 from prophet import Prophet
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
-from xgboost import XGBRegressor
-from statsmodels.tsa.statespace.sarimax import SARIMAX
+from arch import arch_model
 
 st.set_page_config(layout="wide")
 st.title("📊 Портфельный контролёр с ИИ")
-st.markdown("Прогноз на 7 дней, сигналы: 🟢 купить / 🟡 держать / 🔴 продавать")
+st.markdown("Прогноз Prophet + GARCH волатильность + VIX (рыночный)")
 
-# Активы
+# ======================
+# 1. АКТИВЫ
+# ======================
 TICKERS = {
     "CL=F": "Нефть WTI",
     "SLV": "Серебро ETF",
@@ -26,18 +27,21 @@ selected = st.multiselect(
     default=["CL=F", "SLV", "^GSPC"]
 )
 
-# Параметры
+# ======================
+# 2. ПАРАМЕТРЫ
+# ======================
 HISTORY_YEARS = st.slider("Глубина истории (лет)", 2, 5, 3)
 FORECAST_DAYS = 7
 
-# Порог волатильности для блокировки сигналов
 vol_threshold = st.slider(
     "⚠️ Порог волатильности для отмены сделок (%)",
     min_value=1.0, max_value=10.0, value=3.0, step=0.1,
-    help="Если прогнозная волатильность (GARCH) превышает этот порог, сигналы блокируются"
+    help="Если прогнозная волатильность (GARCH) превышает этот порог, сигналы покупки блокируются"
 )
 
-# Загрузка данных
+# ======================
+# 3. ЗАГРУЗКА ДАННЫХ
+# ======================
 @st.cache_data(ttl=3600)
 def load_data(ticker, years):
     end = datetime.now()
@@ -66,6 +70,19 @@ def get_signal(current_price, forecast_row):
     else:
         return "🟡 Держать"
 
+# ======================
+# 4. ГЛОБАЛЬНЫЙ VIX (ОДИН ДЛЯ ВСЕХ АКТИВОВ)
+# ======================
+vix_global = None
+try:
+    vix_data = yf.download("^VIX", period="2d", progress=False)['Close']
+    vix_global = float(vix_data.iloc[-1].values[0])
+except:
+    vix_global = None
+
+# ======================
+# 5. ОСНОВНОЙ ЦИКЛ
+# ======================
 results = []
 for ticker in selected:
     with st.spinner(f"Загружаю {TICKERS[ticker]}..."):
@@ -78,26 +95,26 @@ for ticker in selected:
         forecast = make_forecast(df, FORECAST_DAYS)
         signal = get_signal(current_price, forecast.iloc[0])
 
-        # GARCH для нефти
-        # GARCH для нефти
-        if ticker == "CL=F":
-            try:
-                from arch import arch_model
-                import numpy as np
-                prices_series = df['y'].iloc[-252:]
-                returns = prices_series.pct_change().dropna() * 100
+        # GARCH для актива
+        vol_forecast = None
+        try:
+            prices_series = df['y'].iloc[-252:]
+            returns = prices_series.pct_change().dropna() * 100
+            if len(returns) > 10:
                 model_garch = arch_model(returns, vol='Garch', p=1, q=1)
-                res_garch = model_garch.fit(update_freq=5, disp='off')
-                garch_forecast = res_garch.forecast(horizon=1)
-                vol_forecast = np.sqrt(garch_forecast.variance.values[-1, 0])
-                # Блокировка только сигналов покупки
+                garch_result = model_garch.fit(update_freq=5, disp='off')
+                vol_forecast = garch_result.conditional_volatility.iloc[-1]
+                if hasattr(vol_forecast, 'values'):
+                    vol_forecast = float(vol_forecast.values[0])
+                else:
+                    vol_forecast = float(vol_forecast)
+                # Блокировка сигнала покупки при высокой волатильности
                 if vol_forecast > vol_threshold and "🟢" in signal:
                     signal = "🟡 Держать (высокая волатильность)"
-                # Предупреждение о высокой волатильности (опционально)
-                if vol_forecast > vol_threshold:
-                    st.warning(f"⚠️ Волатильность нефти {vol_forecast:.2f}% (выше порога {vol_threshold}%)")
-            except Exception as e:
-                st.caption(f"GARCH не рассчитан: {e}")
+        except Exception as e:
+            # Если GARCH не рассчитался, оставляем None
+            pass
+
         results.append({
             "Актив": TICKERS[ticker],
             "Цена сейчас": f"${current_price:.2f}",
@@ -105,6 +122,8 @@ for ticker in selected:
             "Нижняя граница": f"${forecast.iloc[0]['yhat_lower']:.2f}",
             "Верхняя граница": f"${forecast.iloc[0]['yhat_upper']:.2f}",
             "Сигнал": signal,
+            "VIX (рыночный)": f"{vix_global:.2f}" if vix_global is not None else "-",
+            "GARCH (%)": f"{vol_forecast:.2f}%" if vol_forecast is not None else "-",
         })
 
         # График Prophet
@@ -114,19 +133,24 @@ for ticker in selected:
         fig.update_layout(title=f"{TICKERS[ticker]} — прогноз Prophet на {FORECAST_DAYS} дней")
         st.plotly_chart(fig, use_container_width=True)
 
-# Сводная таблица сигналов
+# ======================
+# 6. СВОДНАЯ ТАБЛИЦА
+# ======================
 st.subheader("📋 Сигналы Prophet по активам")
 if results:
     df_results = pd.DataFrame(results)
+    # Переупорядочим колонки для удобства
+    column_order = ["Актив", "Цена сейчас", "Прогноз завтра", "Сигнал", "VIX (рыночный)", "GARCH (%)"]
+    df_results = df_results[column_order]
     st.dataframe(df_results, use_container_width=True)
+
+    buys = [r["Актив"] for r in results if "🟢" in r["Сигнал"]]
+    sells = [r["Актив"] for r in results if "🔴" in r["Сигнал"]]
+    if buys:
+        st.success(f"🟢 Рассмотрите покупку: {', '.join(buys)}")
+    if sells:
+        st.error(f"🔴 Рассмотрите продажу: {', '.join(sells)}")
+    if not buys and not sells:
+        st.info("🟡 Ничего не делайте, наблюдайте")
 else:
     st.warning("Нет данных для отображения")
-
-buys = [r["Актив"] for r in results if "🟢" in r["Сигнал"]]
-sells = [r["Актив"] for r in results if "🔴" in r["Сигнал"]]
-if buys:
-    st.success(f"🟢 Рассмотрите покупку: {', '.join(buys)}")
-if sells:
-    st.error(f"🔴 Рассмотрите продажу: {', '.join(sells)}")
-if not buys and not sells:
-    st.info("🟡 Ничего не делайте, наблюдайте")
