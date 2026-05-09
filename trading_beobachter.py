@@ -2,18 +2,22 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import yfinance as yf
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from sklearn.metrics import mean_absolute_error
 from arch import arch_model
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")
 import warnings
 warnings.filterwarnings("ignore")
-
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 st.set_page_config(page_title="Trading Beobachter", layout="wide")
-st.title("📊 Trading Beobachter Dashboard")
-st.markdown("**Система анализа и прогнозирования**")
+st.title("📊 Trading Beobachter — GARCH + LSTM")
+st.markdown("**Система прогнозирования на основе GARCH + LSTM**")
 
 st.sidebar.title("Настройки")
 asset = st.sidebar.selectbox("Актив:", [
@@ -23,6 +27,7 @@ asset = st.sidebar.selectbox("Актив:", [
     "S&P 500 (^GSPC)"
 ])
 period = st.sidebar.selectbox("Период данных:", ["1y", "2y", "3y"])
+epochs = st.sidebar.slider("Эпохи обучения LSTM:", 10, 100, 30)
 
 tickers = {
     "WTI Нефть (CL=F)": "CL=F",
@@ -31,26 +36,14 @@ tickers = {
     "S&P 500 (^GSPC)": "^GSPC"
 }
 ticker = tickers[asset]
-
 if st.sidebar.button("Загрузить и рассчитать"):
     with st.spinner("Загружаем данные..."):
-        main = yf.download(ticker, period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
-        dxy = yf.download("DX-Y.NYB", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
-        sp500 = yf.download("^GSPC", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
-        gold = yf.download("GC=F", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+        df = yf.download(ticker, period=period, interval="1d", auto_adjust=True)
+        df = df[["Close", "Volume"]].dropna()
+        df.columns = ["Price", "Volume"]
         vix = yf.download("^VIX", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
-        uso = yf.download("USO", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
-        tlt = yf.download("TLT", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
-
-        df = pd.DataFrame({
-            "Price": main,
-            "DXY": dxy,
-            "SP500": sp500,
-            "Gold": gold,
-            "VIX": vix,
-            "USO": uso,
-            "TLT": tlt
-        }).dropna()
+        df["VIX"] = vix
+        df = df.dropna()
 
         today_price = float(df["Price"].iloc[-1])
         today_vix = float(df["VIX"].iloc[-1])
@@ -71,58 +64,76 @@ if st.sidebar.button("Загрузить и рассчитать"):
         plt.tight_layout()
         st.pyplot(fig)
         plt.close()
-
         st.subheader("GARCH Волатильность")
         returns = df["Price"].pct_change().dropna() * 100
         garch_model = arch_model(returns, vol="Garch", p=1, q=1)
         garch_result = garch_model.fit(disp="off")
-        garch_vol = float(garch_result.conditional_volatility.iloc[-1])
-        garch_annual = garch_vol * (252**0.5)
+        garch_vol = garch_result.conditional_volatility
+        garch_today = float(garch_vol.iloc[-1])
+        garch_annual = garch_today * (252**0.5)
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("GARCH дневная", f"{garch_today:.2f}%")
+        col2.metric("GARCH годовая", f"{garch_annual:.2f}%")
+        signal = "Спокойно" if today_vix < 20 else "Осторожно" if today_vix < 30 else "Опасно!"
+        col3.metric("Сигнал VIX", signal)
 
         fig2, ax2 = plt.subplots(figsize=(12, 4))
-        garch_daily = garch_result.conditional_volatility
-        vix_daily_series = df["VIX"] / (252**0.5)
-        ax2.plot(garch_daily.index, garch_daily, color="red", label="GARCH", linewidth=1)
-        ax2.plot(vix_daily_series.index, vix_daily_series, color="blue", label="VIX/√252", linewidth=1)
-        ax2.set_title("GARCH vs VIX — Сравнение волатильности")
+        vix_daily = df["VIX"] / (252**0.5)
+        ax2.plot(garch_vol.index, garch_vol, color="red", label="GARCH", linewidth=1)
+        ax2.plot(vix_daily.index, vix_daily, color="blue", label="VIX/√252", linewidth=1)
+        ax2.set_title("GARCH vs VIX")
         ax2.set_ylabel("Волатильность (%)")
         ax2.legend()
         plt.tight_layout()
         st.pyplot(fig2)
         plt.close()
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("GARCH дневная", f"{garch_vol:.2f}%")
-        col2.metric("GARCH годовая", f"{garch_annual:.2f}%")
-        signal = "Спокойно" if today_vix < 20 else "Осторожно" if today_vix < 30 else "Опасно!"
-        col3.metric("Сигнал VIX", signal)
+        df["GARCH_VOL"] = garch_vol.reindex(df.index).fillna(method="ffill")
+        st.subheader("LSTM Прогноз на завтра")
+        with st.spinner("Обучаем LSTM..."):
+            features = ["Price", "VIX", "GARCH_VOL"]
+            scaler = MinMaxScaler()
+            scaled = scaler.fit_transform(df[features])
 
-        st.subheader("Прогноз SARIMAX на завтра")
-        exog_cols = ["DXY", "SP500", "Gold", "VIX", "USO", "TLT"]
-        train = df.iloc[:-30]
-        test = df.iloc[-30:]
+            price_scaler = MinMaxScaler()
+            price_scaler.fit(df[["Price"]])
 
-        with st.spinner("Обучаем SARIMAX..."):
-            sarimax_model = SARIMAX(
-                train["Price"],
-                exog=train[exog_cols],
-                order=(2,1,2),
-                seasonal_order=(1,1,1,5),
-                enforce_stationarity=False,
-                enforce_invertibility=False
-            )
-            sarimax_result = sarimax_model.fit(disp=False)
-            pred = sarimax_result.forecast(steps=30, exog=test[exog_cols])
-            mae = mean_absolute_error(test["Price"], pred)
-            accuracy = 100 - (mae / test["Price"].mean() * 100)
-            last_exog = df[exog_cols].iloc[-1:]
-            tomorrow = float(sarimax_result.forecast(steps=1, exog=last_exog).iloc[0])
+            window = 30
+            X, y = [], []
+            for i in range(window, len(scaled)):
+                X.append(scaled[i-window:i])
+                y.append(scaled[i, 0])
+            X, y = np.array(X), np.array(y)
 
-        change = ((tomorrow - today_price) / today_price * 100)
+            split = int(len(X) * 0.8)
+            X_train, X_test = X[:split], X[split:]
+            y_train, y_test = y[:split], y[split:]
+
+            model = Sequential([
+                LSTM(64, return_sequences=True, input_shape=(window, len(features))),
+                Dropout(0.2),
+                LSTM(32),
+                Dropout(0.2),
+                Dense(1)
+            ])
+            model.compile(optimizer="adam", loss="mse")
+            model.fit(X_train, y_train, epochs=epochs, batch_size=16, verbose=0)
+
+            y_pred = model.predict(X_test, verbose=0)
+            y_pred_inv = price_scaler.inverse_transform(y_pred)
+            y_test_inv = price_scaler.inverse_transform(y_test.reshape(-1,1))
+            mae = mean_absolute_error(y_test_inv, y_pred_inv)
+            accuracy = 100 - (mae / y_test_inv.mean() * 100)
+
+            last_seq = scaled[-window:].reshape(1, window, len(features))
+            tomorrow_scaled = model.predict(last_seq, verbose=0)
+            tomorrow = float(price_scaler.inverse_transform(tomorrow_scaled)[0][0])
+            change = ((tomorrow - today_price) / today_price * 100)
         direction = "Рост" if change > 0 else "Падение"
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Прогноз", f"${tomorrow:.2f}")
+        col1.metric("Прогноз LSTM", f"${tomorrow:.2f}")
         col2.metric("Изменение", f"{change:.2f}%")
         col3.metric("Точность", f"{accuracy:.1f}%")
         col4.metric("Направление", direction)
@@ -130,6 +141,7 @@ if st.sidebar.button("Загрузить и рассчитать"):
         st.subheader("Ожидаемый диапазон завтра")
         low = tomorrow - daily_move
         high = tomorrow + daily_move
+
         col1, col2, col3 = st.columns(3)
         col1.metric("Минимум", f"${low:.2f}")
         col2.metric("Прогноз", f"${tomorrow:.2f}")
@@ -146,8 +158,10 @@ if st.sidebar.button("Загрузить и рассчитать"):
             risk = "Экстремальный риск - лучше не торговать!"
 
         st.info(f"Уровень риска: {risk}")
-        st.info(f"Прогноз: {direction} до ${tomorrow:.2f} (плюс-минус ${daily_move:.2f})")
-        st.success("Источники: SARIMAX + VIX + GARCH | Данные: Yahoo Finance")
+        st.info(f"Прогноз GARCH+LSTM: {direction} до ${tomorrow:.2f} (плюс-минус ${daily_move:.2f})")
+        st.success("Модель: GARCH волатильность + LSTM нейросеть + VIX")
 
 st.markdown("---")
 st.caption("Trading Beobachter - Gabdul741 и Claude Sonnet 4.6 - Anthropic")
+
+            
