@@ -5,6 +5,7 @@ import yfinance as yf
 from xgboost import XGBRegressor
 from arch import arch_model
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error
 import matplotlib.pyplot as plt
@@ -15,12 +16,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 st.set_page_config(page_title="Smart Predictor", layout="wide")
-st.title("📊 Smart Predictor — Умный выбор модели")
-st.markdown("**Каждый актив получает свою оптимальную модель прогнозирования**")
+st.title("📊 Smart Predictor — Ансамбль моделей")
+st.markdown("**Каждый актив получает оптимальную модель прогнозирования**")
 
 st.sidebar.title("Настройки")
 asset = st.sidebar.selectbox("Актив:", [
-    "WTI Нефть (CL=F) — SARIMAX",
+    "WTI Нефть (CL=F) — Ансамбль",
     "Серебро (SI=F) — GARCH+XGBoost",
     "S&P 500 (^GSPC) — XGBoost",
     "Золото (GC=F) — SARIMAX",
@@ -28,7 +29,7 @@ asset = st.sidebar.selectbox("Актив:", [
 period = st.sidebar.selectbox("Период данных:", ["1y", "2y", "3y"])
 
 asset_map = {
-    "WTI Нефть (CL=F) — SARIMAX": ("CL=F", "SARIMAX", "WTI Нефть"),
+    "WTI Нефть (CL=F) — Ансамбль": ("CL=F", "Ensemble", "WTI Нефть"),
     "Серебро (SI=F) — GARCH+XGBoost": ("SI=F", "GARCH+XGBoost", "Серебро"),
     "S&P 500 (^GSPC) — XGBoost": ("^GSPC", "XGBoost", "S&P 500"),
     "Золото (GC=F) — SARIMAX": ("GC=F", "SARIMAX", "Золото"),
@@ -89,7 +90,7 @@ if st.sidebar.button("Загрузить и предсказать"):
         plt.close()
         st.subheader(f"Прогноз на завтра — {model_type}")
 
-        if model_type == "SARIMAX":
+        if model_type == "Ensemble":
             dxy = yf.download("DX-Y.NYB", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
             gold = yf.download("GC=F", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
             sp500 = yf.download("^GSPC", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
@@ -117,45 +118,121 @@ if st.sidebar.button("Загрузить и предсказать"):
                     enforce_invertibility=False
                 )
                 sarimax_result = sarimax_model.fit(disp=False)
+                pred_s = sarimax_result.forecast(steps=30, exog=test[exog_cols])
+                mae_s = mean_absolute_error(test["Price"], pred_s)
+                acc_s = 100 - (mae_s / test["Price"].mean() * 100)
+                last_exog = df[exog_cols].iloc[-1:]
+                tomorrow_sarimax = float(sarimax_result.forecast(steps=1, exog=last_exog).iloc[0])
+
+            df["RSI"] = ta.momentum.RSIIndicator(df["Price"]).rsi()
+            df["MACD"] = ta.trend.MACD(df["Price"]).macd()
+            df["EMA20"] = ta.trend.EMAIndicator(df["Price"], window=20).ema_indicator()
+            for lag in [1, 2, 3, 5]:
+                df[f"lag_{lag}"] = df["Price"].shift(lag)
+                df[f"ret_{lag}"] = df["Price"].pct_change(lag)
+            df["Target"] = df["Price"].shift(-1)
+            df_xgb = df.dropna()
+
+            features = [c for c in df_xgb.columns if c != "Target"]
+            X = df_xgb[features]
+            y = df_xgb["Target"]
+            split = int(len(X) * 0.8)
+            X_train, X_test = X[:split], X[split:]
+            y_train, y_test = y[:split], y[split:]
+
+            with st.spinner("Обучаем XGBoost..."):
+                xgb_model = XGBRegressor(n_estimators=200, learning_rate=0.05,
+                                         max_depth=6, random_state=42)
+                xgb_model.fit(X_train, y_train)
+            y_pred_xgb = xgb_model.predict(X_test)
+            mae_x = mean_absolute_error(y_test, y_pred_xgb)
+            acc_x = 100 - (mae_x / y_test.mean() * 100)
+            tomorrow_xgboost = float(xgb_model.predict(X.iloc[-1:])[0])
+
+            with st.spinner("Обучаем Linear Regression..."):
+                lr_model = LinearRegression()
+                lr_model.fit(X_train, y_train)
+            y_pred_lr = lr_model.predict(X_test)
+            mae_l = mean_absolute_error(y_test, y_pred_lr)
+            acc_l = 100 - (mae_l / y_test.mean() * 100)
+            tomorrow_linear = float(lr_model.predict(X.iloc[-1:])[0])
+
+            tomorrow = np.mean([tomorrow_sarimax, tomorrow_xgboost, tomorrow_linear])
+            spread = max(tomorrow_sarimax, tomorrow_xgboost, tomorrow_linear) - min(tomorrow_sarimax, tomorrow_xgboost, tomorrow_linear)
+            accuracy = np.mean([acc_s, acc_x, acc_l])
+            change = ((tomorrow - today_price) / today_price * 100)
+
+            st.subheader("Результаты каждой модели:")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("SARIMAX", f"${tomorrow_sarimax:.2f}", f"{((tomorrow_sarimax-today_price)/today_price*100):.2f}%")
+            col2.metric("XGBoost", f"${tomorrow_xgboost:.2f}", f"{((tomorrow_xgboost-today_price)/today_price*100):.2f}%")
+            col3.metric("Linear", f"${tomorrow_linear:.2f}", f"{((tomorrow_linear-today_price)/today_price*100):.2f}%")
+
+            if spread > today_price * 0.05:
+                st.warning(f"⚠️ Высокая неопределённость! Разброс моделей: ${spread:.2f} ({(spread/today_price*100):.1f}%)")
+            else:
+                st.success(f"✅ Консенсус моделей! Разброс: ${spread:.2f} ({(spread/today_price*100):.1f}%)")
+
+        elif model_type == "SARIMAX":
+            dxy = yf.download("DX-Y.NYB", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+            gold = yf.download("GC=F", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+            sp500 = yf.download("^GSPC", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+            uso = yf.download("USO", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+            tlt = yf.download("TLT", period=period, interval="1d", auto_adjust=True)["Close"].squeeze()
+            df["DXY"] = dxy
+            df["Gold"] = gold
+            df["SP500"] = sp500
+            df["USO"] = uso
+            df["TLT"] = tlt
+            df = df.dropna()
+            exog_cols = ["DXY", "Gold", "SP500", "VIX", "USO", "TLT", "GARCH_VOL"]
+            train = df.iloc[:-30]
+            test = df.iloc[-30:]
+            with st.spinner("Обучаем SARIMAX..."):
+                sarimax_model = SARIMAX(
+                    train["Price"],
+                    exog=train[exog_cols],
+                    order=(2,1,2),
+                    seasonal_order=(1,1,1,5),
+                    enforce_stationarity=False,
+                    enforce_invertibility=False
+                )
+                sarimax_result = sarimax_model.fit(disp=False)
                 pred = sarimax_result.forecast(steps=30, exog=test[exog_cols])
                 mae = mean_absolute_error(test["Price"], pred)
                 accuracy = 100 - (mae / test["Price"].mean() * 100)
                 last_exog = df[exog_cols].iloc[-1:]
                 tomorrow = float(sarimax_result.forecast(steps=1, exog=last_exog).iloc[0])
+            change = ((tomorrow - today_price) / today_price * 100)
 
         elif model_type in ["XGBoost", "GARCH+XGBoost"]:
             df["RSI"] = ta.momentum.RSIIndicator(df["Price"]).rsi()
             df["MACD"] = ta.trend.MACD(df["Price"]).macd()
             df["EMA20"] = ta.trend.EMAIndicator(df["Price"], window=20).ema_indicator()
-            df["BB_high"] = ta.volatility.BollingerBands(df["Price"]).bollinger_hband()
-            df["BB_low"] = ta.volatility.BollingerBands(df["Price"]).bollinger_lband()
             for lag in [1, 2, 3, 5]:
                 df[f"lag_{lag}"] = df["Price"].shift(lag)
                 df[f"ret_{lag}"] = df["Price"].pct_change(lag)
             df["Target"] = df["Price"].shift(-1)
             df = df.dropna()
-
             features = [c for c in df.columns if c != "Target"]
             X = df[features]
             y = df["Target"]
             split = int(len(X) * 0.8)
             X_train, X_test = X[:split], X[split:]
             y_train, y_test = y[:split], y[split:]
-
             with st.spinner("Обучаем XGBoost..."):
                 model = XGBRegressor(n_estimators=200, learning_rate=0.05,
                                      max_depth=6, random_state=42)
                 model.fit(X_train, y_train)
-
             y_pred = model.predict(X_test)
             mae = mean_absolute_error(y_test, y_pred)
             accuracy = 100 - (mae / y_test.mean() * 100)
             tomorrow = float(model.predict(X.iloc[-1:])[0])
             change = ((tomorrow - today_price) / today_price * 100)
-        direction = "Рост" if change > 0 else "Падение"
+            direction = "Рост" if change > 0 else "Падение"
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Прогноз", f"${tomorrow:.2f}")
+        col1.metric("Прогноз Ансамбль", f"${tomorrow:.2f}")
         col2.metric("Изменение", f"{change:.2f}%")
         col3.metric("Точность", f"{accuracy:.1f}%")
         col4.metric("Направление", direction)
@@ -179,16 +256,18 @@ if st.sidebar.button("Загрузить и предсказать"):
         else:
             risk = "Экстремальный риск - лучше не торговать!"
 
-        if model_type == "SARIMAX":
-            model_info = "SARIMAX + внешние переменные (DXY, Gold, SP500, VIX, USO, TLT, GARCH)"
-        elif model_type == "GARCH+XGBoost":
-            model_info = "GARCH волатильность + XGBoost + технические индикаторы"
-        else:
-            model_info = "XGBoost + технические индикаторы + VIX + GARCH"
+        if abs(change) > 10:
+            st.warning(f"⚠️ Прогноз {change:.1f}% — экстремальное значение! Рынок в зоне форс-мажора!")
 
         st.info(f"Уровень риска: {risk}")
         st.info(f"Прогноз: {direction} до ${tomorrow:.2f} (плюс-минус ${daily_move:.2f})")
-        st.success(f"Модель: {model_info}")
+
+        if model_type == "Ensemble":
+            st.success("Модель: Ансамбль SARIMAX + XGBoost + Linear Regression + GARCH")
+        elif model_type == "SARIMAX":
+            st.success("Модель: SARIMAX + внешние переменные + GARCH")
+        else:
+            st.success("Модель: XGBoost + технические индикаторы + GARCH + VIX")
 
 st.markdown("---")
 st.caption("Smart Predictor - Gabdul741 и Claude Sonnet 4.6 - Anthropic")
