@@ -152,3 +152,42 @@ st.subheader("🚀 Amazon Chronos Прогноз")
         col1.metric("XGBoost прогноз", f"${tomorrow_xgb:.2f}")
         col2.metric("Изменение XGBoost", f"{change_xgb:.2f}%")
         col3.metric("Точность XGBoost", f"{accuracy:.1f}%")
+st.subheader("🎯 Консенсус моделей")
+        tomorrow_ensemble = np.mean([tomorrow_chronos, tomorrow_xgb])
+        change_ensemble = ((tomorrow_ensemble - today_price) / today_price * 100)
+        spread = abs(tomorrow_chronos - tomorrow_xgb)
+        direction_ensemble = "Рост" if change_ensemble > 0 else "Падение"
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Chronos", f"${tomorrow_chronos:.2f}", f"{change_chronos:.2f}%")
+        col2.metric("XGBoost", f"${tomorrow_xgb:.2f}", f"{change_xgb:.2f}%")
+        col3.metric("Консенсус", f"${tomorrow_ensemble:.2f}", f"{change_ensemble:.2f}%")
+        col4.metric("Разброс", f"${spread:.2f}")
+
+        if spread > today_price * 0.05:
+            st.warning(f"⚠️ Высокая неопределённость! Разброс: ${spread:.2f} ({(spread/today_price*100):.1f}%)")
+        elif spread > today_price * 0.02:
+            st.info(f"ℹ️ Умеренная неопределённость. Разброс: ${spread:.2f}")
+        else:
+            st.success(f"✅ Консенсус моделей! Разброс: ${spread:.2f} ({(spread/today_price*100):.1f}%)")
+
+        st.subheader("💡 Рекомендация")
+        if today_vix < 15:
+            risk = "Низкий риск - можно торговать"
+        elif today_vix < 25:
+            risk = "Умеренный риск - осторожно"
+        elif today_vix < 35:
+            risk = "Высокий риск - уменьшить позиции"
+        else:
+            risk = "Экстремальный риск - лучше не торговать!"
+
+        if abs(change_ensemble) > 10:
+            st.warning(f"⚠️ Экстремальный прогноз {change_ensemble:.1f}% — форс-мажор на рынке!")
+
+        st.info(f"Уровень риска: {risk}")
+        st.info(f"Прогноз Chronos: {direction_chronos} до ${tomorrow_chronos:.2f}")
+        st.info(f"Консенсус: {direction_ensemble} до ${tomorrow_ensemble:.2f} (плюс-минус ${daily_move:.2f})")
+        st.success("Модель: Amazon Chronos Foundation + XGBoost + GARCH + VIX")
+
+st.markdown("---")
+st.caption("Amazon Chronos Trader - Gabdul741 и Claude Sonnet 4.6 - Anthropic")
