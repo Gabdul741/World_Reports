@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")
 import ta
+import os, json
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -39,6 +40,19 @@ tickers = {
     "Nvidia (NVDA)": "NVDA",
 }
 ticker = tickers[asset]
+
+FORECAST_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"forecasts_{ticker.replace('=','_').replace('^','')}.json")
+
+def next_trading_day(d, trading_days_set):
+    """Следующий торговый день из известных дат."""
+    nxt = d + pd.Timedelta(days=1)
+    for _ in range(10):
+        if nxt in trading_days_set or nxt.weekday() < 5:
+            if nxt.weekday() < 5:
+                return nxt
+        nxt += pd.Timedelta(days=1)
+    return nxt
+
 if st.sidebar.button("Загрузить и предсказать"):
     with st.spinner("Загружаем данные..."):
         df = yf.download(ticker, period=period, interval="1d", auto_adjust=True)
@@ -50,6 +64,8 @@ if st.sidebar.button("Загрузить и предсказать"):
 
         today_price = float(df["Price"].iloc[-1])
         today_vix = float(df["VIX"].iloc[-1])
+        today_date = df.index[-1]
+        today_key = today_date.strftime("%Y-%m-%d")
         daily_move = today_price * (today_vix/100) / (252**0.5)
 
         col1, col2, col3, col4 = st.columns(4)
@@ -91,7 +107,8 @@ if st.sidebar.button("Загрузить и предсказать"):
         plt.tight_layout()
         st.pyplot(fig2)
         plt.close()
-st.subheader("🚀 Amazon Chronos Прогноз")
+
+        st.subheader("🚀 Amazon Chronos Прогноз")
         with st.spinner("Загружаем Chronos модель..."):
             pipeline = ChronosPipeline.from_pretrained(
                 "amazon/chronos-t5-small",
@@ -152,7 +169,8 @@ st.subheader("🚀 Amazon Chronos Прогноз")
         col1.metric("XGBoost прогноз", f"${tomorrow_xgb:.2f}")
         col2.metric("Изменение XGBoost", f"{change_xgb:.2f}%")
         col3.metric("Точность XGBoost", f"{accuracy:.1f}%")
-st.subheader("🎯 Консенсус моделей")
+
+        st.subheader("🎯 Консенсус моделей")
         tomorrow_ensemble = np.mean([tomorrow_chronos, tomorrow_xgb])
         change_ensemble = ((tomorrow_ensemble - today_price) / today_price * 100)
         spread = abs(tomorrow_chronos - tomorrow_xgb)
@@ -170,6 +188,143 @@ st.subheader("🎯 Консенсус моделей")
             st.info(f"ℹ️ Умеренная неопределённость. Разброс: ${spread:.2f}")
         else:
             st.success(f"✅ Консенсус моделей! Разброс: ${spread:.2f} ({(spread/today_price*100):.1f}%)")
+
+        # ── Трекер прогнозов (скользящее окно 7 дней) ─────────────────────
+        st.subheader("📅 Трекер прогнозов — 7 дней")
+        st.caption("Прогнозы сохраняются ежедневно. Окно скользит автоматически.")
+
+        # Загружаем сохранённые прогнозы
+        if os.path.exists(FORECAST_FILE):
+            with open(FORECAST_FILE, "r") as f:
+                saved = json.load(f)
+        else:
+            saved = {}
+
+        # Сохраняем сегодняшний прогноз на завтра
+        saved[today_key] = {
+            "xgb": round(tomorrow_xgb, 2),
+            "chronos": round(tomorrow_chronos, 2),
+            "price": round(today_price, 2),
+        }
+        with open(FORECAST_FILE, "w") as f:
+            json.dump(saved, f, indent=2)
+
+        # Строим окно: все календарные дни от -4 торговых до +2 торговых,
+        # включая выходные для непрерывности картины
+        trading_days = list(df.index)
+        today_idx = len(trading_days) - 1
+
+        # Крайние точки окна
+        start_trading = trading_days[max(0, today_idx - 4)]
+        last_trading  = trading_days[today_idx]
+
+        # Два следующих торговых дня
+        future = []
+        last = last_trading
+        for _ in range(2):
+            nxt = last + pd.Timedelta(days=1)
+            while nxt.weekday() >= 5:
+                nxt += pd.Timedelta(days=1)
+            future.append(nxt)
+            last = nxt
+
+        end_date = future[-1]
+
+        # Все календарные дни в окне (включая выходные)
+        window = []
+        cur = start_trading
+        while cur <= end_date:
+            window.append(cur)
+            cur += pd.Timedelta(days=1)
+
+        # Реальная дата сегодня (может быть выходной)
+        real_today = pd.Timestamp.now().normalize()
+
+        # Индекс цен по дате для быстрого доступа
+        price_by_date = {d.strftime("%Y-%m-%d"): float(df["Price"].loc[d]) 
+                         for d in df.index if d in df.index}
+
+        # Строим 3 строки
+        dates_row     = {}
+        facts_row     = {}
+        forecasts_row = {}
+
+        for d in window:
+            key   = d.strftime("%Y-%m-%d")
+            label = d.strftime("%a %d.%m")
+
+            # Строка 1: Дата
+            if key == today_key:
+                dates_row[label] = f"📍 {label}"
+            else:
+                dates_row[label] = label
+
+            # Строка 2: Факт (реальная цена если известна)
+            if key in price_by_date:
+                facts_row[label] = f"${price_by_date[key]:.2f}"
+            else:
+                facts_row[label] = "—"
+
+            # Строка 3: Прогноз (сделан накануне)
+            prev = d - pd.Timedelta(days=1)
+            while prev.weekday() >= 5:
+                prev -= pd.Timedelta(days=1)
+            prev_key = prev.strftime("%Y-%m-%d")
+
+            if prev_key in saved:
+                p = saved[prev_key]
+                xgb_p   = p["xgb"]
+                chr_p   = p["chronos"]
+                base    = p["price"]
+                dir_x   = "🟢" if xgb_p >= base else "🔴"
+                dir_c   = "🟢" if chr_p >= base else "🔴"
+
+                # Если факт известен — сравниваем направление
+                if key in price_by_date and key != today_key:
+                    fact_p    = price_by_date[key]
+                    fact_dir  = "🟢" if fact_p >= base else "🔴"
+                    ok_x = "✅" if dir_x == fact_dir else "❌"
+                    ok_c = "✅" if dir_c == fact_dir else "❌"
+                    forecasts_row[label] = f"XGB ${xgb_p:.2f}{dir_x}{ok_x} | CHR ${chr_p:.2f}{dir_c}{ok_c}"
+                else:
+                    mark = "⏳" if key == today_key else "🔮"
+                    forecasts_row[label] = f"XGB ${xgb_p:.2f}{dir_x}{mark} | CHR ${chr_p:.2f}{dir_c}{mark}"
+            else:
+                # Будущие дни: прогноз на завтра уже посчитан
+                if prev_key == today_key:
+                    dir_x = "🟢" if tomorrow_xgb >= today_price else "🔴"
+                    dir_c = "🟢" if tomorrow_chronos >= today_price else "🔴"
+                    forecasts_row[label] = f"XGB ${tomorrow_xgb:.2f}{dir_x}🔮 | CHR ${tomorrow_chronos:.2f}{dir_c}🔮"
+                else:
+                    forecasts_row[label] = "—"
+
+        # Собираем DataFrame 3 строки
+        cols = [d.strftime("%a %d.%m") for d in window]
+        tracker_df = pd.DataFrame([
+            {c: dates_row.get(c, c) for c in cols},
+            {c: facts_row.get(c, "—") for c in cols},
+            {c: forecasts_row.get(c, "—") for c in cols},
+        ], index=["📅 Дата", "💰 Факт", "🔮 Прогноз"])
+
+        st.dataframe(tracker_df, use_container_width=True)
+
+        # Точность за окно (прошлые дни где есть и факт и прогноз)
+        correct_xgb = correct_chr = total = 0
+        for d in window[:5]:
+            label = d.strftime("%a %d.%m")
+            fc = forecasts_row.get(label, "")
+            if "✅" in fc or "❌" in fc:
+                total += 1
+                parts = fc.split("|")
+                if len(parts) == 2:
+                    correct_xgb += "✅" in parts[0]
+                    correct_chr  += "✅" in parts[1]
+
+        if total > 0:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("XGBoost точность (окно)", f"{correct_xgb/total*100:.0f}%")
+            col2.metric("Chronos точность (окно)", f"{correct_chr/total*100:.0f}%")
+            col3.metric("Дней с прогнозом", total)
 
         st.subheader("💡 Рекомендация")
         if today_vix < 15:
